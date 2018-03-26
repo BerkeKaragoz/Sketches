@@ -42,7 +42,7 @@ int  winWidth, winHeight; // current Window width and height
 #define MENU 1
 #define PLAY 2
 #define END 3
-#define RACER_AMOUNT 17 // <---- ADJUSTABLE
+#define RACER_AMOUNT 3 // <---- ADJUSTABLE
 #define STARTING_TIME 180
 
 /*
@@ -301,13 +301,27 @@ void dispBullet(int index) {
 	//printf("%d ", index);
 	for (i = 0; i <= index; i++) {
 		circle(((*(bullets + i)).pos.x), ((*(bullets + i)).pos.y), 3);
-		circle(0, 0, 3);
-		printf("%d ", i);
-		((*(bullets + i)).pos.x) += bulletspeed * ((*(bullets + i)).tri.x);
-		((*(bullets + i)).pos.y) += bulletspeed * ((*(bullets + i)).tri.y);
+		circle(0, 0, 2);
+		//printf("%d ", i);
+		(*(bullets + i)).pos.x += bulletspeed * ((*(bullets + i)).tri.x);
+		(*(bullets + i)).pos.y += bulletspeed * ((*(bullets + i)).tri.y);
 		if ((*(bullets + i)).tri.y > WINDOW_HEIGHT / 2 || (*(bullets + i)).tri.x > WINDOW_WIDTH / 2 || (*(bullets + i)).tri.y < -WINDOW_HEIGHT || (*(bullets + i)).tri.x < -WINDOW_WIDTH)
 			*(shoot + i) = false;
-
+		for (initial = 0; initial < RACER_AMOUNT; initial++) {
+			circle(*(posx + initial), *(posy + initial) - 135, 3);
+			if (*(posx + initial) - 9 < (*(bullets + i)).pos.x && *(posx + initial) + 9 > (*(bullets + i)).pos.x && *(posy + initial) - 9 < (*(bullets + i)).pos.y && *(posy + initial) + 9 > (*(bullets + i)).pos.y) {
+				printf("Headshot! %d\n", initial+1);
+				*(shoot + i) = false;
+			}
+			else if (*(posx + initial) - 6 < (*(bullets + i)).pos.x && *(posx + initial) + 6 > (*(bullets + i)).pos.x && *(posy + initial) - 75 < (*(bullets + i)).pos.y && *(posy + initial) - 9 > (*(bullets + i)).pos.y) {
+				printf("Bodyshot! %d\n", initial+1);
+				*(shoot + i) = false;
+			}
+			else if (*(posx + initial) - 6 < (*(bullets + i)).pos.x && *(posx + initial) + 6 > (*(bullets + i)).pos.x && *(posy + initial) - 135 < (*(bullets + i)).pos.y && *(posy + initial) - 75 > (*(bullets + i)).pos.y) {
+				printf("Legshot %d\n", initial + 1);
+				*(shoot + i) = false;
+			}
+		}
 	}
 
 }
