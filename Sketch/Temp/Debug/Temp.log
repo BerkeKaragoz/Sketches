@@ -1,4 +1,5 @@
 ﻿  Temp.cpp
-c:\users\e. berke karagöz\documents\visual studio 2015\projects\sketch\temp\temp.cpp(577): warning C4390: ';': empty controlled statement found; is this the intent?
-  Temp.vcxproj -> C:\Users\E. Berke KARAGÖZ\documents\visual studio 2015\Projects\Sketch\Debug\Temp.exe
-  Temp.vcxproj -> C:\Users\E. Berke KARAGÖZ\documents\visual studio 2015\Projects\Sketch\Debug\Temp.pdb (Full PDB)
+c:\users\e. berke karagöz\desktop\google drive\github\sketches\sketch\temp\temp.cpp(82): warning C4094: untagged 'struct' declared no symbols
+c:\users\e. berke karagöz\desktop\google drive\github\sketches\sketch\temp\temp.cpp(644): warning C4390: ';': empty controlled statement found; is this the intent?
+  Temp.vcxproj -> C:\Users\E. Berke KARAGÖZ\Desktop\Google Drive\GitHub\Sketches\Sketch\Debug\Temp.exe
+  Temp.vcxproj -> C:\Users\E. Berke KARAGÖZ\Desktop\Google Drive\GitHub\Sketches\Sketch\Debug\Temp.pdb (Full PDB)

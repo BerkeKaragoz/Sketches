@@ -19,30 +19,31 @@ explain here which parts are not running.
 #define WINDOW_WIDTH  400
 #define WINDOW_HEIGHT 400
 
-#define TIMER_PERIOD  1000 // Period for the timer.
-#define TIMER_ON         0 // 0:disable timer, 1:enable timer
+#define TIMER_PERIOD  16 // Period for the timer.
+#define TIMER_ON         1 // 0:disable timer, 1:enable timer
 
 #define D2R 0.0174532
-
-
-typedef struct {
-	int posx, posy, lenght;
-	double angle;
-}player_t;
-
-typedef struct {
-	int x, y;
-}point_t;
 
 /* Global Variables for Template File */
 bool up = false, down = false, right = false, left = false;
 int  winWidth, winHeight; // current Window width and height
-player_t player = { -WINDOW_WIDTH / 2 + 50, 0, 30, 0, };
-point_t onmove;
-						  //
-						  // to draw circle, center at (x,y)
-						  // radius r
-						  //
+double trix, triy;
+bool shoot = false;
+int bullets[50], index = -1;
+typedef struct {
+	float x, y,
+		lenght,
+		angle,
+		width,
+		r, g, b;
+}arrow_t;
+
+arrow_t arrow = { 0,0,50,45,3,0,0,1 };
+
+//
+// to draw circle, center at (x,y)
+// radius r
+//
 void circle(int x, int y, int r)
 {
 #define PI 3.1415
@@ -76,7 +77,7 @@ void print(int x, int y, char *string, void *font)
 
 	glRasterPos2f(x, y);
 	len = (int)strlen(string);
-	for (i = 0; i<len; i++)
+	for (i = 0; i < len; i++)
 	{
 		glutBitmapCharacter(font, string[i]);
 	}
@@ -95,7 +96,7 @@ void vprint(int x, int y, void *font, char *string, ...)
 	int len, i;
 	glRasterPos2f(x, y);
 	len = (int)strlen(str);
-	for (i = 0; i<len; i++)
+	for (i = 0; i < len; i++)
 	{
 		glutBitmapCharacter(font, str[i]);
 	}
@@ -114,25 +115,32 @@ void vprint2(int x, int y, float size, char *string, ...) {
 
 	int len, i;
 	len = (int)strlen(str);
-	for (i = 0; i<len; i++)
+	for (i = 0; i < len; i++)
 	{
 		glutStrokeCharacter(GLUT_STROKE_ROMAN, str[i]);
 	}
 	glPopMatrix();
 }
 
-void dispPlayer() {
-
-	glColor3f(0.2, 0.2, 0.2);
-	glLineWidth(5);
+void drawArrow() {
+	glLineWidth(arrow.width);
 	glBegin(GL_LINES);
-	glVertex2f(player.posx, player.posy);
-	glVertex2f(player.posx + sin(player.angle)*player.lenght, player.posy + cos(player.angle)*player.lenght);
+	glVertex2f(arrow.x, arrow.y);
+	glVertex2f(arrow.x + trix*arrow.lenght, arrow.y + triy*arrow.lenght);
 	glEnd();
+	vprint(arrow.x - 17, arrow.y - 20, GLUT_BITMAP_9_BY_15, "%0.2f", arrow.angle);
+	circle(arrow.x, arrow.y, 10);
+}
 
-	vprint(player.posx - 15, player.posy - 30, GLUT_BITMAP_9_BY_15, "%02.f", player.angle);
-	vprint(onmove.x -10, onmove.y - 30, GLUT_BITMAP_9_BY_15, "%0.2f", cos(player.angle)*player.lenght);
-	//player.angle = atan(fabs(y - player.posy) / fabs(x - player.posx));
+void dispBullet() {
+
+	//for (index; *(bullets+index)*triy > WINDOW_HEIGHT / 2 || *(bullets + index)*trix > WINDOW_WIDTH / 2 || *(bullets + index)*triy < -WINDOW_HEIGHT || *(bullets + index)*trix < -WINDOW_WIDTH;(*(bullets+index))++)
+	static float bulx = trix, buly = triy;
+	static int posx = arrow.x, posy = arrow.y;
+	circle(posx, posy, 3);
+	posx += 3 * bulx;
+	posy += 3 * buly;
+	vprint(-50, -50, GLUT_BITMAP_8_BY_13, "bulx:%0.2f buly:%0.2f", bulx, buly);
 }
 
 //
@@ -143,10 +151,11 @@ void display() {
 	//
 	// clear window to black
 	//
-	glClearColor(0.8, 0.8, 0.8, 0);
+	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT);
-
-	dispPlayer();
+	drawArrow();
+	if (shoot == true)
+		dispBullet();
 
 	glutSwapBuffers();
 
@@ -160,7 +169,14 @@ void onKeyDown(unsigned char key, int x, int y)
 	// exit when ESC is pressed.
 	if (key == 27)
 		exit(0);
-
+	if (key == 'w')
+		arrow.y += 3;
+	if (key == 'a')
+		arrow.x -= 3;
+	if (key == 's')
+		arrow.y -= 3;
+	if (key == 'd')
+		arrow.x += 3;
 	// to refresh the window it calls display() function
 	glutPostRedisplay();
 }
@@ -183,10 +199,10 @@ void onSpecialKeyDown(int key, int x, int y)
 {
 	// Write your codes here.
 	switch (key) {
-	case GLUT_KEY_UP: up = true; break;
-	case GLUT_KEY_DOWN: down = true; break;
-	case GLUT_KEY_LEFT: left = true; break;
-	case GLUT_KEY_RIGHT: right = true; break;
+	case GLUT_KEY_UP: arrow.y += 3; up = true; break;
+	case GLUT_KEY_DOWN:arrow.y -= 3; down = true; break;
+	case GLUT_KEY_LEFT: arrow.x -= 3; left = true; break;
+	case GLUT_KEY_RIGHT: arrow.x += 3; right = true; break;
 	}
 
 	// to refresh the window it calls display() function
@@ -221,8 +237,12 @@ void onSpecialKeyUp(int key, int x, int y)
 void onClick(int button, int stat, int x, int y)
 {
 	// Write your codes here.
-
-
+	if (button == GLUT_LEFT_BUTTON && stat == GLUT_DOWN) {
+		shoot = true;
+		//dispBullet();
+		index++;
+		printf("Shoot: %d\n", shoot);
+	}
 
 	// to refresh the window it calls display() function
 	glutPostRedisplay();
@@ -251,7 +271,7 @@ void onMoveDown(int x, int y) {
 
 
 
-	// to refresh the window it calls display() function   
+	// to refresh the window it calls display() function  
 	glutPostRedisplay();
 }
 
@@ -260,9 +280,27 @@ void onMoveDown(int x, int y) {
 //   y2 = winHeight / 2 - y1
 void onMove(int x, int y) {
 	// Write your codes here.
-	onmove.x = x - winWidth / 2;
-	onmove.y = winHeight / 2 - y;
-	player.angle = atan(fabs(y - player.posy) / fabs(x - player.posx));
+	x = x - winWidth / 2;
+	y = winHeight / 2 - y;
+
+	arrow.angle = atan(fabs(y - arrow.y) / fabs(x - arrow.x));
+	if (y - arrow.y >= 0 && x - arrow.x >= 0) {
+		trix = cos(arrow.angle);
+		triy = sin(arrow.angle);
+	}
+	else if (y - arrow.y < 0 && x - arrow.x >= 0) {
+		trix = cos(arrow.angle);
+		triy = -sin(arrow.angle);
+	}
+	else if (y - arrow.y >= 0 && x - arrow.x < 0) {
+		trix = -cos(arrow.angle);
+		triy = sin(arrow.angle);
+	}
+	else if (y - arrow.y < 0 && x - arrow.x < 0) {
+		trix = -cos(arrow.angle);
+		triy = -sin(arrow.angle);
+	}
+
 
 	// to refresh the window it calls display() function
 	glutPostRedisplay();
@@ -324,3 +362,4 @@ void main(int argc, char *argv[]) {
 
 	glutMainLoop();
 }
+

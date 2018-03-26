@@ -60,32 +60,39 @@ typedef struct {
 	int x, y;
 }point_t;
 
-typedef struct {
-	float trix, triy;
+typedef struct {//trigonometry
+	double x, y;
 }tri_t;
 
 typedef struct {
 	point_t pos;
-	int lenght;
-	float angle;
+	int lenght, width;
+	double angle;
 }player_t;
+
+typedef struct {
+	point_t pos;
+	tri_t tri;
+}projectile_t;
 
 typedef struct {
 	point_t pos;
 	int speed;
 	tri_t tri;
 };
-						  //Glubuls
+//Glubuls
 int posx[RACER_AMOUNT], posy[RACER_AMOUNT], winner, counter[RACER_AMOUNT] = { 0 }, multiplier = 10;
-int gamestate = LOAD, timecount = 0, initial, i, ms, sec,
+int gamestate = LOAD, timecount = 0, initial, i, ms, sec, bulletcount = -1, bulletspeed = 10,
 max = -5000; //
-player_t player = { {-WINDOW_WIDTH / 2 + 50, 0 }, 30, 0, };
+player_t player = { {-WINDOW_WIDTH / 2 + 50, 0 }, 40, 10, 0, };
 point_t onmove;
-
+tri_t tri;
+projectile_t *bullets;
 double accel[RACER_AMOUNT], speed[RACER_AMOUNT];
 bool touch[RACER_AMOUNT],//if touched to the limit
 flag = false,
-timer = true;
+timer = true,
+*shoot;
 
 //
 // to draw circle, center at (x,y)
@@ -277,16 +284,31 @@ void stickmanReverse(int mposx, int mposy, float r, float g, float b, int i) {
 void dispPlayer() {
 
 	glColor3f(0.2, 0.2, 0.2);
-	glLineWidth(5);
+	glLineWidth(player.width);
 	glBegin(GL_LINES);
 	glVertex2f(player.pos.x, player.pos.y);
-	glVertex2f(0, 0);
+	glVertex2f(player.pos.x + tri.x*player.lenght, player.pos.y + tri.y*player.lenght);
+	glVertex2f(player.pos.x + 5, player.pos.y);
+	glVertex2f(player.pos.x + 5 + tri.y*player.lenght / 2, player.pos.y + -tri.x*player.lenght / 2);
 	glEnd();
 
-	vprint(player.pos.x - 15, player.pos.y - 30, GLUT_BITMAP_9_BY_15, "%d", player.angle);
+	vprint(player.pos.x - 15, player.pos.y - 30, GLUT_BITMAP_9_BY_15, "%0.2f", player.angle);
 	//player.angle = atan(fabs(y - player.posy) / fabs(x - player.posx));
 }
-void dispBullet(){
+void dispBullet(int index) {
+
+	glColor3f(0, 0, 0);
+	//printf("%d ", index);
+	for (i = 0; i <= index; i++) {
+		circle(((*(bullets + i)).pos.x), ((*(bullets + i)).pos.y), 3);
+		circle(0, 0, 3);
+		printf("%d ", i);
+		((*(bullets + i)).pos.x) += bulletspeed * ((*(bullets + i)).tri.x);
+		((*(bullets + i)).pos.y) += bulletspeed * ((*(bullets + i)).tri.y);
+		if ((*(bullets + i)).tri.y > WINDOW_HEIGHT / 2 || (*(bullets + i)).tri.x > WINDOW_WIDTH / 2 || (*(bullets + i)).tri.y < -WINDOW_HEIGHT || (*(bullets + i)).tri.x < -WINDOW_WIDTH)
+			*(shoot + i) = false;
+
+	}
 
 }
 void displayLoad() {
@@ -352,6 +374,12 @@ void displayPlay() {
 	}
 
 	dispPlayer();
+
+	for (i = 0; i <= bulletcount; i++) {
+		if (*(shoot + i) == true)
+			dispBullet(i);
+		//printf("%d ", i);
+	}
 
 	//DEBUG
 	vprint(onmove.x - 15, onmove.y - 30, GLUT_BITMAP_9_BY_15, "Angle:%d X: %d Y: %d", player.angle, onmove.x, onmove.y);
@@ -527,6 +555,15 @@ void onClick(int button, int stat, int x, int y)
 	// Write your codes here.
 	if (stat == GLUT_DOWN)
 		printf("X = %d  Y = %d\n", x - winWidth / 2, y - winHeight / 2);
+	if (button == GLUT_LEFT_BUTTON && stat == GLUT_DOWN) {
+		bulletcount++;
+		bullets = (projectile_t *)malloc(sizeof(projectile_t) * (bulletcount + 1));
+		shoot = (bool *)malloc(sizeof(bool) * (bulletcount + 1));
+		*(bullets + bulletcount) = { { player.pos.x, player.pos.y }, {tri.x, tri.y} };
+		printf("Shoot %d: %d -> ", bulletcount, *(shoot + bulletcount));
+		*(shoot + bulletcount) = true;
+		printf("%d\n", *(shoot + bulletcount));
+	}
 
 	// to refresh the window it calls display() function
 	glutPostRedisplay();
@@ -564,11 +601,26 @@ void onMoveDown(int x, int y) {
 //   y2 = winHeight / 2 - y1
 void onMove(int x, int y) {
 	// Write your codes here.
-	onmove.x = x - winWidth / 2;
-	onmove.y = winHeight / 2 - y;
-	player.angle = atan(fabs(onmove.y - player.pos.y) / fabs(onmove.x - player.pos.x));
+	x = x - winWidth / 2;
+	y = winHeight / 2 - y;
+	player.angle = atan(fabs(y - player.pos.y) / fabs(x - player.pos.x));
 
-
+	if (y - player.pos.y >= 0 && x - player.pos.x >= 0) {
+		tri.x = cos(player.angle);
+		tri.y = sin(player.angle);
+	}
+	else if (y - player.pos.y < 0 && x - player.pos.x >= 0) {
+		tri.x = cos(player.angle);
+		tri.y = -sin(player.angle);
+	}
+	else if (y - player.pos.y >= 0 && x - player.pos.x < 0) {
+		tri.x = -cos(player.angle);
+		tri.y = sin(player.angle);
+	}
+	else if (y - player.pos.y < 0 && x - player.pos.x < 0) {
+		tri.x = -cos(player.angle);
+		tri.y = -sin(player.angle);
+	}
 	// to refresh the window it calls display() function
 	glutPostRedisplay();
 }
