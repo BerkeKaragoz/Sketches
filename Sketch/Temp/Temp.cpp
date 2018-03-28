@@ -372,7 +372,7 @@ void displayLoad() {
 	//circle((timecount / 16) * 50 - 200, -50, 15);
 
 	//printf("%c", 13);
-	if (timecount > 0)//150
+	if (timecount > 100)//150
 		gamestate = MENU;
 
 }
