@@ -81,11 +81,14 @@ typedef struct {
 	tri_t tri;
 };
 //Glubuls
-int posx[TARGET_AMOUNT], posy[TARGET_AMOUNT], winner, counter[TARGET_AMOUNT] = { 0 }, multiplier = 10, gamestate = LOAD, timecount = 0, initial, i, ms, sec, bulletcount = -1, bulletspeed = 10, max = -5000, score = 0, health[TARGET_AMOUNT], healthpoints = 4;
+int posx[TARGET_AMOUNT], posy[TARGET_AMOUNT], winner, counter[TARGET_AMOUNT] = { 0 }, multiplier = 10, gamestate = LOAD,
+timecount = 0, initial, i, ms, sec, bulletcount = -1, bulletspeed = 10, max = -5000, score = 0, health[TARGET_AMOUNT], healthpoints = 4, gametime = 40;
+
 player_t player = { {-WINDOW_WIDTH / 2 + 65, 0 }, 40, 10, 0, };
 point_t onmove;
 tri_t tri;
 projectile_t *bullets;
+
 double accel[TARGET_AMOUNT], speed[TARGET_AMOUNT];
 bool touch[TARGET_AMOUNT],//if touched to the limit
 flag = false,
@@ -277,7 +280,7 @@ void stickmanReverse(int mposx, int mposy, float r, float g, float b, int hp) {
 		if (hp > i)
 			glColor3f(0, 1, 0);
 		else glColor3f(1, 0, 0);
-		vprint(mposx - 5+i*2, mposy + 20, GLUT_BITMAP_HELVETICA_12, "l");
+		vprint(mposx - 3+i*2 - healthpoints, mposy + 20, GLUT_BITMAP_HELVETICA_12, "l");
 	}
 }
 void dispPlayer() {
@@ -304,7 +307,7 @@ void hitBoxes() {
 			printf("Headshot! %d\n", initial + 1);
 			*(shoot + i) = false;
 			score += 4;
-			*(health + initial) = 0;
+			*(health + initial) -= 5;
 
 			if (*(health + initial) <= 0) {
 				*(speed + initial) = 0.1;
@@ -380,8 +383,20 @@ void displayMenu() {
 	vprint2(-150, 40, 0.6, "SHOOTER");
 	glColor3f(0, 0, 0);
 	vprint(-123, -20, GLUT_BITMAP_HELVETICA_18, "Press \'Enter\' to start the game.");
-	vprint(-100, -40, GLUT_BITMAP_HELVETICA_12, "Press Arrow Keys to change speed.");
-	vprint(-90, -60, GLUT_BITMAP_HELVETICA_12, "Press \'Spacebar\' to pause.");
+	vprint(-115, -40, GLUT_BITMAP_9_BY_15, "Press \'W\' and \'S\' to move.");
+	vprint(-135, -60, GLUT_BITMAP_9_BY_15, "Press Arrow Keys to change speed.");
+	vprint(-115, -80, GLUT_BITMAP_9_BY_15, "Press \'Spacebar\' to pause.");
+	vprint(-135, -100, GLUT_BITMAP_9_BY_15, "Press \'F1\' to switch to menu.");
+	vprint(-225, -120, GLUT_BITMAP_9_BY_15, "Press \'F2\' to decrease, \'F3\' to increase target health.");
+
+	glColor3f(0, 1, 0);
+	for (i = 0; i < healthpoints; i++) {
+		vprint2(-5 + i * 20 - healthpoints * 10, -250, 0.5, "l");
+	}
+	glColor3f(0, 0, 0);
+	vprint(-65, -280, GLUT_BITMAP_HELVETICA_12, "Target Healthpoints: ");
+	vprint(-15, -305, GLUT_BITMAP_HELVETICA_18, "%-2d", healthpoints);
+	
 	glLineWidth(10);
 	glBegin(GL_LINES);
 	glVertex2f(-228, 160);
@@ -455,10 +470,16 @@ void displayPlay() {
 	else {
 		sec = ms / 60;
 		ms -= sec * 60;
-		vprint(350, 320, GLUT_BITMAP_HELVETICA_18, "%0.2d", sec);
-		vprint(370, 320, GLUT_BITMAP_HELVETICA_12, ":%d", ms);
+		if (gametime - 1 - sec <= 3)
+			glColor3f(1, 0, 0);
+		vprint(350, 320, GLUT_BITMAP_HELVETICA_18, "%0.2d", gametime-1-sec);
+		vprint(370, 320, GLUT_BITMAP_HELVETICA_12, ":%d", 60-ms);
+		glColor3f(0.3, 0.3, 0.3);
 		vprint(-360, 335, GLUT_BITMAP_HELVETICA_12, "Score:");
 		vprint(-350, 315, GLUT_BITMAP_HELVETICA_18, "%0.3d", score);
+
+		if (gametime <= sec)
+			gamestate = END;
 	}
 
 	if (timecount > STARTING_TIME - 25 && timecount < STARTING_TIME + 25) {
@@ -505,7 +526,7 @@ void display() {
 }
 
 void startGame() {
-	//initializing speed, acceleration, position, states, health
+	//initializing speed, acceleration, position, states, health, score, time
 	for (initial = 0; initial < TARGET_AMOUNT; initial++) {
 		*(speed + initial) = 0.2;
 		*(accel + initial) = (rand() % 30 + 30) / 175.0;
@@ -514,8 +535,9 @@ void startGame() {
 		*(posy + initial) = -200 + initial * 600 / TARGET_AMOUNT;
 		*(touch + initial) = false;
 		*(health + initial) = healthpoints;
-		score = 0;
 	}
+	score = 0;
+	timecount = 0;
 }
 
 //
@@ -529,7 +551,6 @@ void onKeyDown(unsigned char key, int x, int y)
 	if (key == 13 && gamestate == MENU) {
 		startGame();
 		gamestate = PLAY;
-		timecount = 0;
 	}
 	if (key == 13 && gamestate == END) {
 		startGame();
@@ -540,10 +561,10 @@ void onKeyDown(unsigned char key, int x, int y)
 		printf("Timer = %d\n", timer);
 	}
 	if (key == 'w' && gamestate == PLAY && player.pos.y < WINDOW_HEIGHT / 2 - 50) {
-		player.pos.y += 5;
+		player.pos.y += 7;
 	}
 	if (key == 's' && gamestate == PLAY && player.pos.y > -WINDOW_HEIGHT / 2 + 115) {
-		player.pos.y -= 5;
+		player.pos.y -= 7;
 	}
 
 	// to refresh the window it calls display() function
@@ -580,12 +601,12 @@ void onSpecialKeyDown(int key, int x, int y)
 
 	}
 
-	if (key == GLUT_KEY_F1 && gamestate == END) {
+	if (key == GLUT_KEY_F1) {
 		startGame();
-		gamestate = PLAY;
+		gamestate = MENU;
 	}
 
-	if (key == GLUT_KEY_F2 && gamestate == MENU) {
+	if (key == GLUT_KEY_F2 && gamestate == MENU && healthpoints > 1) {
 		healthpoints--;
 	}
 
@@ -626,7 +647,7 @@ void onClick(int button, int stat, int x, int y)
 	// Write your codes here.
 	if (stat == GLUT_DOWN)
 		printf("X = %d  Y = %d\n", x - winWidth / 2, y - winHeight / 2);
-	if (button == GLUT_LEFT_BUTTON && stat == GLUT_DOWN) {
+	if (button == GLUT_LEFT_BUTTON && stat == GLUT_DOWN && gamestate == PLAY) {
 		bulletcount++;
 		bullets = (projectile_t *)malloc(sizeof(projectile_t) * (bulletcount + 1));
 		shoot = (bool *)malloc(sizeof(bool) * (bulletcount + 1));

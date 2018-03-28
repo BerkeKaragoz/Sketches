@@ -1,12 +1,12 @@
-/*********
+﻿/*********
 CTIS164 - Template Source Program
 ----------
-STUDENT :
-SECTION :
-HOMEWORK:
+STUDENT :Buğrahan Durukan - 21601657
+SECTION :02
+HOMEWORK:02
 ----------
-PROBLEMS: If your program does not function correctly,
-explain here which parts are not running.
+PROBLEMS: When mouse is being moved on the screen it makes the program run faster
+EXTRAS: Full auto bow
 *********/
 
 #include <GL/glut.h>
@@ -15,35 +15,47 @@ explain here which parts are not running.
 #include <math.h>
 #include <string.h>
 #include <stdarg.h>
+#include <time.h>
 
-#define WINDOW_WIDTH  400
-#define WINDOW_HEIGHT 400
+#define WINDOW_WIDTH  1300
+#define WINDOW_HEIGHT 800
 
-#define TIMER_PERIOD  16 // Period for the timer.
+#define TIMER_PERIOD  35// Period for the timer.
 #define TIMER_ON         1 // 0:disable timer, 1:enable timer
 
 #define D2R 0.0174532
 
 /* Global Variables for Template File */
 bool up = false, down = false, right = false, left = false;
+int thickness = 80;
+bool hit;
 int  winWidth, winHeight; // current Window width and height
-double trix, triy;
-bool shoot = false;
-int bullets[50], index = -1;
-typedef struct {
-	float x, y,
-		lenght,
-		angle,
-		width,
-		r, g, b;
-}arrow_t;
-
-arrow_t arrow = { 0,0,50,45,3,0,0,1 };
+int i, y = -WINDOW_HEIGHT / 2 + thickness - 50 + 115, speed = 35;
+int timeSw;
+int timer = 0, mseconds, seconds, onmovex = 0, onmovey = 0, playerx = 0;
+#define TARGET_AMOUNT 5
+#define PLAY 0
+#define END 1
+#define LOAD 2
+int targets[TARGET_AMOUNT], targetsx[TARGET_AMOUNT], gamestate = LOAD;
+bool active[TARGET_AMOUNT] = { false }, fire;
+int tarcnt;
+int lastHitPoints;
+int hitcnt;
+int points;
 
 //
 // to draw circle, center at (x,y)
+
 // radius r
 //
+
+void toTime() {
+	mseconds = timer;
+	seconds = mseconds / 60;
+	mseconds -= seconds * 60;
+}
+
 void circle(int x, int y, int r)
 {
 #define PI 3.1415
@@ -122,25 +134,190 @@ void vprint2(int x, int y, float size, char *string, ...) {
 	glPopMatrix();
 }
 
-void drawArrow() {
-	glLineWidth(arrow.width);
-	glBegin(GL_LINES);
-	glVertex2f(arrow.x, arrow.y);
-	glVertex2f(arrow.x + trix*arrow.lenght, arrow.y + triy*arrow.lenght);
-	glEnd();
-	vprint(arrow.x - 17, arrow.y - 20, GLUT_BITMAP_9_BY_15, "%0.2f", arrow.angle);
-	circle(arrow.x, arrow.y, 10);
+void drawTarget(int positionx, int positiony, int size) {
+	glColor3f(0.9, 0.9, 0.9);
+	circle(positionx, positiony, size * 5);
+	glColor3f(0.1, 0.1, 0.1);
+	circle(positionx, positiony, size * 4);
+	glColor3f(0, 0, 0.85);
+	circle(positionx, positiony, size * 3);
+	glColor3f(0.85, 0, 0);
+	circle(positionx, positiony, size * 2);
+	glColor3f(0.85, 0.85, 0);
+	circle(positionx, positiony, size);
+	if (positionx >= 600 && positionx <= 605)
+		tarcnt++;
+
+
 }
 
-void dispBullet() {
+void drawBow(int thickness) {
+	glColor3f(0.3, 0.2, 0.1);
+	glBegin(GL_POLYGON);
+	glVertex2f(playerx - 50, -winHeight / 2 + thickness - 50 + 50);
+	glVertex2f(playerx - 35, -winHeight / 2 + thickness - 20 + 50);
+	glVertex2f(playerx, -winHeight / 2 + thickness + 50);
+	glVertex2f(playerx + 35, -winHeight / 2 + thickness - 20 + 50);
+	glVertex2f(playerx + 50, -winHeight / 2 + thickness - 50 + 50);
+	glEnd();
+	glColor3f(0.7, 0.7, 0.7);
+	glBegin(GL_POLYGON);
+	glVertex2f(playerx - 45, -winHeight / 2 + thickness - 45 + 45);
+	glVertex2f(playerx - 30, -winHeight / 2 + thickness - 15 + 45);
+	glVertex2f(playerx, -winHeight / 2 + thickness + 45);
+	glVertex2f(playerx + 30, -winHeight / 2 + thickness - 15 + 45);
+	glVertex2f(playerx + 45, -winHeight / 2 + thickness - 45 + 45);
+	glEnd();
+}
 
-	//for (index; *(bullets+index)*triy > WINDOW_HEIGHT / 2 || *(bullets + index)*trix > WINDOW_WIDTH / 2 || *(bullets + index)*triy < -WINDOW_HEIGHT || *(bullets + index)*trix < -WINDOW_WIDTH;(*(bullets+index))++)
-	static float bulx = trix, buly = triy;
-	static int posx = arrow.x, posy = arrow.y;
-	circle(posx, posy, 3);
-	posx += 3 * bulx;
-	posy += 3 * buly;
-	vprint(-50, -50, GLUT_BITMAP_8_BY_13, "bulx:%0.2f buly:%0.2f", bulx, buly);
+void drawAreas(int thickness, double factor) {
+
+	//hor
+	glColor3f(0.1, 0.1, 0.1);
+	glBegin(GL_QUAD_STRIP);
+	glVertex2f(-winWidth / 2, -winHeight / 2 + thickness);
+	glVertex2f(winWidth / 2, -winHeight / 2 + thickness);
+	glVertex2f(-winWidth / 2, -winHeight / 2);
+	glVertex2f(winWidth / 2, -winHeight / 2);
+	glEnd();
+
+	//seperator
+	glColor3f(0.5, 0.5, 0.5);
+	glBegin(GL_LINES);
+	glVertex2f(-winWidth / 2, -winHeight / 2 + thickness / factor);
+	glVertex2f(winWidth / 2, -winHeight / 2 + thickness / factor);
+	glEnd();
+
+	if (timeSw == 1)
+		toTime();
+	//info
+	glColor3f(0.8, 0.95, 0.8);
+	//producer and product
+	vprint(-50, -winHeight / 2 + thickness / (factor*factor), GLUT_BITMAP_HELVETICA_18, "Archer The Game by Bugrahan DURUKAN");
+	//target counter amount of targets displayed on the screen
+	vprint(200, -winHeight / 2 + thickness / (factor*factor) + 50, GLUT_BITMAP_HELVETICA_18, "Target Counter");
+	vprint(200, -winHeight / 2 + thickness / (factor*factor) + 28, GLUT_BITMAP_HELVETICA_18, "%d", tarcnt);
+	//Shots that hit the target
+	vprint(0, -winHeight / 2 + thickness / (factor*factor) + 50, GLUT_BITMAP_HELVETICA_18, "Hit Counter");
+	vprint(0, -winHeight / 2 + thickness / (factor*factor) + 28, GLUT_BITMAP_HELVETICA_18, "%d", hitcnt);
+	//points gained from hits depending on specified area
+	vprint(-200, -winHeight / 2 + thickness / (factor*factor) + 50, GLUT_BITMAP_HELVETICA_18, "Points Gained");
+	vprint(-200, -winHeight / 2 + thickness / (factor*factor) + 28, GLUT_BITMAP_HELVETICA_18, "%d", points);
+	//time counter
+	vprint(-400, -winHeight / 2 + thickness / 2 + 17, GLUT_BITMAP_HELVETICA_18, "Time: %0.2d:%0.2d", seconds, mseconds);
+	if (seconds == 20)
+	{
+		timeSw = 0;
+		//points = 0;
+		//hitcnt = 0;
+		//tarcnt = 0;
+		//lastHitPoints = 0;
+		timer = 0;
+	}
+	//last point gained
+	vprint(400, -winHeight / 2 + thickness / (factor*factor) + 50, GLUT_BITMAP_HELVETICA_18, "Last Point");
+	vprint(400, -winHeight / 2 + thickness / (factor*factor) + 28, GLUT_BITMAP_HELVETICA_18, "%d", lastHitPoints);
+	//instruction
+	glColor3f(0, 0, 0);
+	vprint(400, -winHeight / 2 + thickness / (factor*factor) + 150, GLUT_BITMAP_HELVETICA_18, "F1 to Stop the game");
+	vprint(400, -winHeight / 2 + thickness / (factor*factor) + 100, GLUT_BITMAP_HELVETICA_18, "Space to (Re)Start the game");
+
+}
+
+void callTargets(int size) {
+	int i, random;
+	for (i = 0; i < TARGET_AMOUNT; i++)
+	{
+		srand(time(NULL));
+		random = rand() % 5;
+		if (active[i] == true)
+			targetsx[i] -= 10;
+		else if (timer % 20 == 10)
+			active[random] = true;
+		drawTarget(targetsx[i], targets[i], size);
+		if (targetsx[i] < -winWidth / 2 - 50 || active[i] == false) {
+			active[i] = false;
+			targetsx[i] = WINDOW_WIDTH / 2 + 50;
+		}
+	}
+
+}
+
+void arrow(int thickness, int pos, int size) {
+	glColor3f(0.5, 0.5, 0.5);
+
+	//static bool hit;
+	hit = false;
+	//static int i, y = -winHeight / 2 + thickness - 50 + 115, speed = 0;
+	do
+	{
+		//speed++;
+		y += speed;
+		glBegin(GL_TRIANGLES);
+		glVertex2f(pos, y);
+		glVertex2f(pos + 7, y - 15);
+		glVertex2f(pos - 7, y - 15);
+		glEnd();
+		glBegin(GL_TRIANGLES);
+		glVertex2f(pos, y - 75);
+		glVertex2f(pos + 7, y - 90);
+		glVertex2f(pos - 7, y - 90);
+		glEnd();
+		glColor3b(0.5, 0.5, 0.5);
+		glLineWidth(4);
+		glBegin(GL_LINES);
+		glVertex2f(pos, y - 14);
+		glVertex2f(pos, y - 80);
+		glEnd();
+
+		if (y >= WINDOW_HEIGHT / 2)
+		{
+			y = -winHeight / 2 + thickness - 50 + 115;
+			//speed = 0;
+			//fire = false;
+		}
+
+		for (i = 0; i < TARGET_AMOUNT; i++) {
+
+			//if hits 10 bulls-eye
+			if (targets[i] < y + size * 1 && targets[i] > size*-1 && targetsx[i] < pos + size * 1 && targetsx[i] > pos + size*-1 && hit == false)
+			{
+				hit = true;
+				active[i] = false;
+				//if (hit == true)
+				hitcnt++;
+				points = points + 10;
+				lastHitPoints = 10;
+			//	fire = false;
+
+			}
+			//if hits 6
+			if (targets[i] < y + size * 1 && targets[i] > size*-1 && targetsx[i] < pos + size * 2 && targetsx[i] > pos + size*-2 && hit == false)
+			{
+				hit = true;
+				active[i] = false;
+				hitcnt++;
+				points = points + 6;
+				lastHitPoints = 6;
+				fire = false;
+
+			}
+			//if hits 1
+			if (targets[i] < y + size * 1 && targets[i] > size*-1 && targetsx[i] < pos + size * 4 && targetsx[i] > pos + size*-4 && hit == false)
+			{
+				hit = true;
+				active[i] = false;
+				hitcnt++;
+				points++;
+				lastHitPoints = 1;
+				fire = false;
+			}
+			//glBegin(GL_POLYGON);
+			//glVertex2f(, y + size * 1)
+			hit = false;
+		}
+
+	} while (hit == true || fire == true);
 }
 
 //
@@ -151,11 +328,20 @@ void display() {
 	//
 	// clear window to black
 	//
-	glClearColor(0, 0, 0, 0);
+	glClearColor(0.7, 0.7, 0.7, 0);
 	glClear(GL_COLOR_BUFFER_BIT);
-	drawArrow();
-	if (shoot == true)
-		dispBullet();
+
+	drawAreas(80, 3.5);
+	drawBow(80);
+	//drawTarget(onmovex, onmovey + 50, 8);
+
+	callTargets(8);
+
+	if (fire == true) {
+		fire = false;
+
+		arrow(80, playerx, 8);
+	}
 
 	glutSwapBuffers();
 
@@ -167,16 +353,15 @@ void display() {
 void onKeyDown(unsigned char key, int x, int y)
 {
 	// exit when ESC is pressed.
+
 	if (key == 27)
 		exit(0);
-	if (key == 'w')
-		arrow.y += 3;
-	if (key == 'a')
-		arrow.x -= 3;
-	if (key == 's')
-		arrow.y -= 3;
-	if (key == 'd')
-		arrow.x += 3;
+	if (key == 32)
+	{
+		fire = true;
+		timeSw = 1;
+	}
+
 	// to refresh the window it calls display() function
 	glutPostRedisplay();
 }
@@ -199,12 +384,25 @@ void onSpecialKeyDown(int key, int x, int y)
 {
 	// Write your codes here.
 	switch (key) {
-	case GLUT_KEY_UP: arrow.y += 3; up = true; break;
-	case GLUT_KEY_DOWN:arrow.y -= 3; down = true; break;
-	case GLUT_KEY_LEFT: arrow.x -= 3; left = true; break;
-	case GLUT_KEY_RIGHT: arrow.x += 3; right = true; break;
+	case GLUT_KEY_UP: up = true; break;
+	case GLUT_KEY_DOWN: down = true; break;
+	case GLUT_KEY_LEFT: playerx -= 8; left = true;
+		if (playerx >= 600)
+			playerx = 600;
+		break;
+	case GLUT_KEY_RIGHT:playerx += 8; right = true;
+		if (playerx <= -600)
+			playerx = -600;
+		break;
+	case GLUT_KEY_F1:
+		timeSw = 0;
+		points = 0;
+		hitcnt = 0;
+		tarcnt = 0;
+		lastHitPoints = 0;
+		timer = 0;
+		break;
 	}
-
 	// to refresh the window it calls display() function
 	glutPostRedisplay();
 }
@@ -237,12 +435,9 @@ void onSpecialKeyUp(int key, int x, int y)
 void onClick(int button, int stat, int x, int y)
 {
 	// Write your codes here.
-	if (button == GLUT_LEFT_BUTTON && stat == GLUT_DOWN) {
-		shoot = true;
-		//dispBullet();
-		index++;
-		printf("Shoot: %d\n", shoot);
-	}
+	if (stat == GLUT_DOWN)
+		printf("X = %d  Y = %d\n", x - winWidth / 2, winHeight / 2 - y);
+
 
 	// to refresh the window it calls display() function
 	glutPostRedisplay();
@@ -271,7 +466,7 @@ void onMoveDown(int x, int y) {
 
 
 
-	// to refresh the window it calls display() function  
+	// to refresh the window it calls display() function   
 	glutPostRedisplay();
 }
 
@@ -280,27 +475,12 @@ void onMoveDown(int x, int y) {
 //   y2 = winHeight / 2 - y1
 void onMove(int x, int y) {
 	// Write your codes here.
-	x = x - winWidth / 2;
-	y = winHeight / 2 - y;
 
-	arrow.angle = atan(fabs(y - arrow.y) / fabs(x - arrow.x));
-	if (y - arrow.y >= 0 && x - arrow.x >= 0) {
-		trix = cos(arrow.angle);
-		triy = sin(arrow.angle);
-	}
-	else if (y - arrow.y < 0 && x - arrow.x >= 0) {
-		trix = cos(arrow.angle);
-		triy = -sin(arrow.angle);
-	}
-	else if (y - arrow.y >= 0 && x - arrow.x < 0) {
-		trix = -cos(arrow.angle);
-		triy = sin(arrow.angle);
-	}
-	else if (y - arrow.y < 0 && x - arrow.x < 0) {
-		trix = -cos(arrow.angle);
-		triy = -sin(arrow.angle);
-	}
+	//x = x - winWidth / 2;
+	//y = winHeight / 2 - y;
 
+	//onmovex = x;
+	//onmovey = y;
 
 	// to refresh the window it calls display() function
 	glutPostRedisplay();
@@ -311,7 +491,8 @@ void onTimer(int v) {
 
 	glutTimerFunc(TIMER_PERIOD, onTimer, 0);
 	// Write your codes here.
-
+	if (timeSw == 1)
+		timer++;
 
 
 	// to refresh the window it calls display() function
@@ -332,7 +513,13 @@ void main(int argc, char *argv[]) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
 	glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
-	glutCreateWindow("Template File");
+	glutCreateWindow("Archer The Game By Bugrahan Durukan"); //Buğrahan DURUKAN
+	int i;
+	for (i = 0; i < TARGET_AMOUNT; i++) {
+		targets[i] = WINDOW_HEIGHT / 8 + 80 * i - 100;
+		targetsx[i] = WINDOW_WIDTH / 2 + 50;
+		printf("T%d - X:%0.2d Y:%0.2d\n", i, targetsx[i], targets[i]);
+	}
 
 	glutDisplayFunc(display);
 	glutReshapeFunc(onResize);
@@ -362,4 +549,3 @@ void main(int argc, char *argv[]) {
 
 	glutMainLoop();
 }
-
