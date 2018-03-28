@@ -42,8 +42,8 @@ int  winWidth, winHeight; // current Window width and height
 #define MENU 1
 #define PLAY 2
 #define END 3
-#define RACER_AMOUNT 3 // <---- ADJUSTABLE
-#define STARTING_TIME 180
+#define TARGET_AMOUNT 5 // <---- ADJUSTABLE
+#define STARTING_TIME 60
 
 /*
 if (flag == true) {
@@ -81,15 +81,13 @@ typedef struct {
 	tri_t tri;
 };
 //Glubuls
-int posx[RACER_AMOUNT], posy[RACER_AMOUNT], winner, counter[RACER_AMOUNT] = { 0 }, multiplier = 10;
-int gamestate = LOAD, timecount = 0, initial, i, ms, sec, bulletcount = -1, bulletspeed = 10,
-max = -5000; //
-player_t player = { {-WINDOW_WIDTH / 2 + 50, 0 }, 40, 10, 0, };
+int posx[TARGET_AMOUNT], posy[TARGET_AMOUNT], winner, counter[TARGET_AMOUNT] = { 0 }, multiplier = 10, gamestate = LOAD, timecount = 0, initial, i, ms, sec, bulletcount = -1, bulletspeed = 10, max = -5000, score = 0, health[TARGET_AMOUNT], healthpoints = 4;
+player_t player = { {-WINDOW_WIDTH / 2 + 65, 0 }, 40, 10, 0, };
 point_t onmove;
 tri_t tri;
 projectile_t *bullets;
-double accel[RACER_AMOUNT], speed[RACER_AMOUNT];
-bool touch[RACER_AMOUNT],//if touched to the limit
+double accel[TARGET_AMOUNT], speed[TARGET_AMOUNT];
+bool touch[TARGET_AMOUNT],//if touched to the limit
 flag = false,
 timer = true,
 *shoot;
@@ -204,31 +202,28 @@ void stickMan(int mposx, int mposy, float r, float g, float b, int i) {
 
 	//upperleg 1
 	glVertex2f(mposx - 5, mposy - 75);
-	glVertex2f(mposx - 15 - ((mposx - 5000) % 50), mposy - 112);
+	glVertex2f(mposx - 15 - ((mposy - 5000) % 50), mposy - 112);
 	//lowerleg 1
-	glVertex2f(mposx - 15 - ((mposx - 5000) % 50), mposy - 112);
-	glVertex2f(mposx - 40 - ((mposx - 5000) % 50), mposy - 145);
+	glVertex2f(mposx - 15 - ((mposy - 5000) % 50), mposy - 112);
+	glVertex2f(mposx - 40 - ((mposy - 5000) % 50), mposy - 145);
 
 	//upperleg 2
 	glVertex2f(mposx - 5, mposy - 75);
-	glVertex2f(mposx + 30 + ((mposx - 5000) % 50), mposy - 100);
+	glVertex2f(mposx + 30 + ((mposy - 5000) % 50), mposy - 100);
 	//lowerleg 2
-	glVertex2f(mposx + 30 + ((mposx - 5000) % 50), mposy - 100);
-	glVertex2f(mposx + 5 + ((mposx - 5000) % 50), mposy - 130);
+	glVertex2f(mposx + 30 + ((mposy - 5000) % 50), mposy - 100);
+	glVertex2f(mposx + 5 + ((mposy - 5000) % 50), mposy - 130);
 
 	glEnd();
 
 	circle(mposx + 17 - ((mposx + 5000) % 50), mposy - 49 + ((mposx + 5000) % 100) / 5, 5); //arm joint1
 	circle(mposx - 16 + ((mposx + 5000) % 50), mposy - 48 + ((mposx + 5000) % 50) / 10, 5); //arm joint2
-	circle(mposx - 15 - ((mposx - 5000) % 50), mposy - 112, 5); //leg joint1
-	circle(mposx + 30 + ((mposx - 5000) % 50), mposy - 100, 5); //leg joint2
+	circle(mposx - 15 - ((mposy - 5000) % 50), mposy - 112, 5); //leg joint1
+	circle(mposx + 30 + ((mposy - 5000) % 50), mposy - 100, 5); //leg joint2
 	circle(mposx + 25 - ((mposx + 5000) % 50) / 1, mposy - 10 - ((mposx + 5000) % 50) * 1.1, 5); //hand 1
 	circle(mposx - 18 + ((mposx + 5000) % 50) / 1, mposy - 65 + ((mposx + 5000) % 50) * 1.1, 5); //hand 2
-
-	glColor3f(0.5, 0.5, 0.5);
-	vprint(mposx - 5, mposy - 40, GLUT_BITMAP_HELVETICA_12, "%d", i + 1);
 }
-void stickmanReverse(int mposx, int mposy, float r, float g, float b, int i) {
+void stickmanReverse(int mposx, int mposy, float r, float g, float b, int hp) {
 
 	glColor3f(r, g, b);//color
 
@@ -278,10 +273,16 @@ void stickmanReverse(int mposx, int mposy, float r, float g, float b, int i) {
 	circle(mposx - 25 + ((mposx + 5000) % 50) / 1, mposy - 10 - ((mposx + 5000) % 50) * 1.1, 5); //hand 1
 	circle(mposx + 18 - ((mposx + 5000) % 50) / 1, mposy - 65 + ((mposx + 5000) % 50) * 1.1, 5); //hand 2
 
-	glColor3f(0.5, 0.5, 0.5);
-	vprint(mposx - 5, mposy - 40, GLUT_BITMAP_HELVETICA_12, "%d", i + 1);
+	for (i = 0; i < healthpoints; i++) {
+		if (hp > i)
+			glColor3f(0, 1, 0);
+		else glColor3f(1, 0, 0);
+		vprint(mposx - 5+i*2, mposy + 20, GLUT_BITMAP_HELVETICA_12, "l");
+	}
 }
 void dispPlayer() {
+
+	stickMan(player.pos.x - 6, player.pos.y + 30, 1, 0, 0, -1);
 
 	glColor3f(0.2, 0.2, 0.2);
 	glLineWidth(player.width);
@@ -292,44 +293,73 @@ void dispPlayer() {
 	glVertex2f(player.pos.x + 5 + tri.y*player.lenght / 2, player.pos.y + -tri.x*player.lenght / 2);
 	glEnd();
 
-	vprint(player.pos.x - 15, player.pos.y - 30, GLUT_BITMAP_9_BY_15, "%0.2f", player.angle);
+	//vprint(player.pos.x - 15, player.pos.y - 30, GLUT_BITMAP_9_BY_15, "%0.2f", player.angle);
 	//player.angle = atan(fabs(y - player.posy) / fabs(x - player.posx));
 }
+
+
+void hitBoxes() {
+	for (initial = 0; initial < TARGET_AMOUNT; initial++) {
+		if (*(posx + initial) - 9 < (*(bullets + i)).pos.x && *(posx + initial) + 9 > (*(bullets + i)).pos.x && *(posy + initial) - 9 < (*(bullets + i)).pos.y && *(posy + initial) + 9 > (*(bullets + i)).pos.y) {
+			printf("Headshot! %d\n", initial + 1);
+			*(shoot + i) = false;
+			score += 4;
+			*(health + initial) = 0;
+
+			if (*(health + initial) <= 0) {
+				*(speed + initial) = 0.1;
+				printf("No %d: Accel: %0.4f Speed: %0.4f\n", initial, *(accel + initial), *(speed + initial));
+				*(posx + initial) = WINDOW_WIDTH / 2 + 50 + rand() % 500;
+				*(health + initial) = healthpoints;
+			}
+		}
+		else if (*(posx + initial) - 6 < (*(bullets + i)).pos.x && *(posx + initial) + 6 > (*(bullets + i)).pos.x && *(posy + initial) - 75 < (*(bullets + i)).pos.y && *(posy + initial) - 9 > (*(bullets + i)).pos.y) {
+			printf("Bodyshot! %d\n", initial + 1);
+			*(shoot + i) = false;
+			score += 2;
+			*(health + initial) -= 2;
+
+			if (*(health + initial) <= 0) {
+				*(speed + initial) = 0.1;
+				printf("No %d: Accel: %0.4f Speed: %0.4f\n", initial, *(accel + initial), *(speed + initial));
+				*(posx + initial) = WINDOW_WIDTH / 2 + 50 + rand() % 500;
+				*(health + initial) = healthpoints;
+			}
+		}
+		else if (*(posx + initial) - 6 < (*(bullets + i)).pos.x && *(posx + initial) + 6 > (*(bullets + i)).pos.x && *(posy + initial) - 135 < (*(bullets + i)).pos.y && *(posy + initial) - 75 > (*(bullets + i)).pos.y) {
+			printf("Legshot %d\n", initial + 1);
+			*(shoot + i) = false;
+			score += 1;
+			*(health + initial) -= 1;
+
+			if (*(health + initial) <= 0) {
+				*(speed + initial) = 0.1;
+				printf("No %d: Accel: %0.4f Speed: %0.4f\n", initial, *(accel + initial), *(speed + initial));
+				*(posx + initial) = WINDOW_WIDTH / 2 + 50 + rand() % 500;
+				*(health + initial) = healthpoints;
+			}
+		}
+	}
+}
+
 void dispBullet(int index) {
 
 	glColor3f(0, 0, 0);
 	//printf("%d ", index);
 	for (i = 0; i <= index; i++) {
 		circle(((*(bullets + i)).pos.x), ((*(bullets + i)).pos.y), 3);
-		circle(0, 0, 2);
-		//printf("%d ", i);
-		(*(bullets + i)).pos.x += bulletspeed * ((*(bullets + i)).tri.x);
-		(*(bullets + i)).pos.y += bulletspeed * ((*(bullets + i)).tri.y);
-		if ((*(bullets + i)).tri.y > WINDOW_HEIGHT / 2 || (*(bullets + i)).tri.x > WINDOW_WIDTH / 2 || (*(bullets + i)).tri.y < -WINDOW_HEIGHT || (*(bullets + i)).tri.x < -WINDOW_WIDTH)
+
+		if ((*(bullets + i)).pos.y > WINDOW_HEIGHT / 2 || (*(bullets + i)).pos.x > WINDOW_WIDTH / 2 || (*(bullets + i)).pos.y < -WINDOW_HEIGHT || (*(bullets + i)).pos.x < -WINDOW_WIDTH)
 			*(shoot + i) = false;
-		for (initial = 0; initial < RACER_AMOUNT; initial++) {
-			circle(*(posx + initial), *(posy + initial) - 135, 3);
-			if (*(posx + initial) - 9 < (*(bullets + i)).pos.x && *(posx + initial) + 9 > (*(bullets + i)).pos.x && *(posy + initial) - 9 < (*(bullets + i)).pos.y && *(posy + initial) + 9 > (*(bullets + i)).pos.y) {
-				printf("Headshot! %d\n", initial+1);
-				*(shoot + i) = false;
-			}
-			else if (*(posx + initial) - 6 < (*(bullets + i)).pos.x && *(posx + initial) + 6 > (*(bullets + i)).pos.x && *(posy + initial) - 75 < (*(bullets + i)).pos.y && *(posy + initial) - 9 > (*(bullets + i)).pos.y) {
-				printf("Bodyshot! %d\n", initial+1);
-				*(shoot + i) = false;
-			}
-			else if (*(posx + initial) - 6 < (*(bullets + i)).pos.x && *(posx + initial) + 6 > (*(bullets + i)).pos.x && *(posy + initial) - 135 < (*(bullets + i)).pos.y && *(posy + initial) - 75 > (*(bullets + i)).pos.y) {
-				printf("Legshot %d\n", initial + 1);
-				*(shoot + i) = false;
-			}
-		}
+		hitBoxes();
 	}
 
 }
 void displayLoad() {
-	glColor3f(0.2, 0.5, 0.2);
+	glColor3f(0.5, 0.2, 0.2);
 	vprint2(-125, 50, 0.6, "LOADING");
 
-	glColor3f(0.1, 0.4, 0.1);
+	glColor3f(0.4, 0.1, 0.1);
 	glLineWidth(10);
 	glBegin(GL_LINES);
 	glVertex2f(-250, -25);
@@ -339,19 +369,26 @@ void displayLoad() {
 	//circle((timecount / 16) * 50 - 200, -50, 15);
 
 	//printf("%c", 13);
-	if (timecount > 150)
+	if (timecount > 0)//150
 		gamestate = MENU;
 
 }
 void displayMenu() {
-	stickMan(-250, 170, 0, 1, 0, 0);
-	glColor3f(0.2, 0.5, 0.2);
+	stickMan(-250, 170, 1, 0, 0, healthpoints);
+	glColor3f(0.5, 0.2, 0.2);
 	vprint2(-180, 120, 0.6, "STICKMAN");
 	vprint2(-150, 40, 0.6, "SHOOTER");
 	glColor3f(0, 0, 0);
 	vprint(-123, -20, GLUT_BITMAP_HELVETICA_18, "Press \'Enter\' to start the game.");
 	vprint(-100, -40, GLUT_BITMAP_HELVETICA_12, "Press Arrow Keys to change speed.");
 	vprint(-90, -60, GLUT_BITMAP_HELVETICA_12, "Press \'Spacebar\' to pause.");
+	glLineWidth(10);
+	glBegin(GL_LINES);
+	glVertex2f(-228, 160);
+	glVertex2f(-210, 150);
+	glVertex2f(-225, 160);
+	glVertex2f(-205, 190);
+	glEnd();
 }
 void displayPlay() {
 	/*
@@ -371,8 +408,8 @@ void displayPlay() {
 
 	//stickMan(*(posx+1), *(posy+1), 0, 1, 0);
 	static bool r = 0, g = 0, b = 0;
-	for (initial = RACER_AMOUNT - 1; initial >= 0; initial--) {
-		switch (initial % 8) {
+	for (initial = TARGET_AMOUNT - 1; initial >= 0; initial--) {
+		switch ((initial + 2 )% 8) {
 		case 0:break;
 		case 4: g = 1;
 		case 1: r = 1; break;
@@ -383,7 +420,7 @@ void displayPlay() {
 		case 3: g = 1; break;
 		}
 		if (*(touch + initial) == false)
-			stickmanReverse(*(posx + initial), *(posy + initial), r, g, b, initial);
+			stickmanReverse(*(posx + initial), *(posy + initial), r, g, b, *(health + initial));
 		r = g = b = 0;
 	}
 
@@ -396,11 +433,11 @@ void displayPlay() {
 	}
 
 	//DEBUG
-	vprint(onmove.x - 15, onmove.y - 30, GLUT_BITMAP_9_BY_15, "Angle:%d X: %d Y: %d", player.angle, onmove.x, onmove.y);
-	vprint(onmove.x - 15, onmove.y - 50, GLUT_BITMAP_9_BY_15, "pX: %d pY: %d", player.pos.x, player.pos.y);
+	//vprint(onmove.x - 15, onmove.y - 30, GLUT_BITMAP_9_BY_15, "Angle:%0.2f X: %d Y: %d", player.angle, onmove.x, onmove.y);
+	//vprint(onmove.x - 15, onmove.y - 50, GLUT_BITMAP_9_BY_15, "pX: %d pY: %d", player.pos.x, player.pos.y);
 
 	glColor3f(0.3, 0.3, 0.3);
-	vprint(-80, 330, GLUT_BITMAP_HELVETICA_18, "%d Pixels Sprint Race", WINDOW_WIDTH * 2);
+	vprint(-80, 330, GLUT_BITMAP_HELVETICA_18, "%d Pixels Line Defense", WINDOW_WIDTH);
 	vprint(0, 315, GLUT_BITMAP_HELVETICA_12, "by E. Berke KARAGOZ");
 	ms = timecount - STARTING_TIME;
 
@@ -420,8 +457,8 @@ void displayPlay() {
 		ms -= sec * 60;
 		vprint(350, 320, GLUT_BITMAP_HELVETICA_18, "%0.2d", sec);
 		vprint(370, 320, GLUT_BITMAP_HELVETICA_12, ":%d", ms);
-		vprint(-350, 335, GLUT_BITMAP_HELVETICA_12, "Closest enemy HP:");
-		vprint(-350, 315, GLUT_BITMAP_HELVETICA_18, "%0.3d", winner + 1);
+		vprint(-360, 335, GLUT_BITMAP_HELVETICA_12, "Score:");
+		vprint(-350, 315, GLUT_BITMAP_HELVETICA_18, "%0.3d", score);
 	}
 
 	if (timecount > STARTING_TIME - 25 && timecount < STARTING_TIME + 25) {
@@ -436,9 +473,12 @@ void displayPlay() {
 	}
 }
 void displayEnd() {
-	glColor3f(0, 0, 0);
-	vprint(-30, 0, GLUT_BITMAP_HELVETICA_18, "%3d Wins!", winner + 1);
-	vprint(-70, -40, GLUT_BITMAP_HELVETICA_12, "Press \'Enter\' or \'F1\' to start again!");
+	glColor3f(0.6, 0.2, 0.2);
+	vprint(-45, 75, GLUT_BITMAP_HELVETICA_18, "Your score is:");
+	glColor3f(0.0, 1, 0.0);
+	vprint2(-25, 0, 0.5, "%-3d", score);
+	glColor3f(0.0, 0.0, 0.0);
+	vprint(-70, -50, GLUT_BITMAP_HELVETICA_12, "Press \'Enter\' or \'F1\' to start again!");
 }
 
 
@@ -465,14 +505,16 @@ void display() {
 }
 
 void startGame() {
-	//initializing speed, acceleration, position, states
-	for (initial = 0; initial < RACER_AMOUNT; initial++) {
+	//initializing speed, acceleration, position, states, health
+	for (initial = 0; initial < TARGET_AMOUNT; initial++) {
 		*(speed + initial) = 0.2;
-		*(accel + initial) = (rand() % 30 + 30) / 100.0;
+		*(accel + initial) = (rand() % 30 + 30) / 175.0;
 		printf("No %d: Accel: %0.4f Speed: %0.4f\n", initial, *(accel + i), *(speed + i));
-		*(posx + initial) = 600;
-		*(posy + initial) = -200 + initial * 500 / RACER_AMOUNT;
+		*(posx + initial) = WINDOW_WIDTH / 2 + 50 + rand() % 400;
+		*(posy + initial) = -200 + initial * 600 / TARGET_AMOUNT;
 		*(touch + initial) = false;
+		*(health + initial) = healthpoints;
+		score = 0;
 	}
 }
 
@@ -485,6 +527,7 @@ void onKeyDown(unsigned char key, int x, int y)
 	if (key == 27)
 		exit(0);
 	if (key == 13 && gamestate == MENU) {
+		startGame();
 		gamestate = PLAY;
 		timecount = 0;
 	}
@@ -495,6 +538,12 @@ void onKeyDown(unsigned char key, int x, int y)
 	if (key == 32 && gamestate == PLAY) {
 		timer = !timer;
 		printf("Timer = %d\n", timer);
+	}
+	if (key == 'w' && gamestate == PLAY && player.pos.y < WINDOW_HEIGHT / 2 - 50) {
+		player.pos.y += 5;
+	}
+	if (key == 's' && gamestate == PLAY && player.pos.y > -WINDOW_HEIGHT / 2 + 115) {
+		player.pos.y -= 5;
 	}
 
 	// to refresh the window it calls display() function
@@ -534,6 +583,14 @@ void onSpecialKeyDown(int key, int x, int y)
 	if (key == GLUT_KEY_F1 && gamestate == END) {
 		startGame();
 		gamestate = PLAY;
+	}
+
+	if (key == GLUT_KEY_F2 && gamestate == MENU) {
+		healthpoints--;
+	}
+
+	if (key == GLUT_KEY_F3 && gamestate == MENU) {
+		healthpoints++;
 	}
 	// to refresh the window it calls display() function
 	glutPostRedisplay();
@@ -646,6 +703,19 @@ void onTimer(int v) {
 	if (timer == true) {
 
 		timecount++;
+		for (i = 0; i <= bulletcount; i++) {
+			if (*(shoot + i) == true) {
+				(*(bullets + i)).pos.x += bulletspeed * ((*(bullets + i)).tri.x);
+				(*(bullets + i)).pos.y += bulletspeed * ((*(bullets + i)).tri.y);
+				hitBoxes();
+				(*(bullets + i)).pos.x += bulletspeed * ((*(bullets + i)).tri.x);
+				(*(bullets + i)).pos.y += bulletspeed * ((*(bullets + i)).tri.y);
+				hitBoxes();
+				(*(bullets + i)).pos.x += bulletspeed * ((*(bullets + i)).tri.x);
+				(*(bullets + i)).pos.y += bulletspeed * ((*(bullets + i)).tri.y);
+				//to make the bullets faster and make the hitboxes more consistent
+			}
+		}
 		// Write your codes here.
 
 		switch (gamestate) {
@@ -653,10 +723,10 @@ void onTimer(int v) {
 		case MENU: break;
 		case PLAY:
 			if (timecount >= STARTING_TIME)
-				for (i = RACER_AMOUNT - 1; i >= 0; i--) {
+				for (i = TARGET_AMOUNT - 1; i >= 0; i--) {
 
 					if (*(touch + i) == false) {
-						if (winWidth % winWidth / 20.0 == 0.0 || 0.2 + +*(accel + i));
+						//	if (winWidth % winWidth / 20.0 == 0.0 || 0.2 + +*(accel + i));
 						*(speed + i) += (*(accel + i) / 40.0);
 						*(posx + i) -= *(speed + i);
 						if (max <= *(posx + i) && flag == false) {
