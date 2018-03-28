@@ -1,4 +1,4 @@
 ﻿  Temp.cpp
-c:\users\e. berke karagöz\desktop\google drive\github\sketches\sketch\temp\temp.cpp(82): warning C4094: untagged 'struct' declared no symbols
+c:\users\e. berke karagöz\desktop\google drive\github\sketches\sketch\temp\temp.cpp(84): warning C4094: untagged 'struct' declared no symbols
   Temp.vcxproj -> C:\Users\E. Berke KARAGÖZ\Desktop\Google Drive\GitHub\Sketches\Sketch\Debug\Temp.exe
   Temp.vcxproj -> C:\Users\E. Berke KARAGÖZ\Desktop\Google Drive\GitHub\Sketches\Sketch\Debug\Temp.pdb (Full PDB)

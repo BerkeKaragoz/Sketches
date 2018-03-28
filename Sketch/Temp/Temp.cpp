@@ -1,21 +1,34 @@
 /*********
 CTIS164 - Template Source Program
 ----------
-STUDENT : E. Berke KARAGÖZ / 21704206
+STUDENT : E. Berke KARAG?Z / 21704206
 SECTION : 2
 HOMEWORK: Racing Game
 ----------
-PROBLEMS: ¿Problemo?
+PROBLEMS: ?Problemo?
 ----------
 Features:
+- Used trigonometry to aim and shoot with the mouse.
+- Targets have health and they are adjustable
+- Target health bar
+- Player move animation
+- Timer becomes red when 3 seconds left
+- Starting countdown
+- Total hits, score, total shots fired, last hit points and location
+- Shows closest target hp (new technique to track)
+- Changeable game duration.
+- Changeable target amount
+Could add more but...
+	From last homework:
 - Works at 60 fps. TIMER_PERIOD = 166.6 ( divided by multiplier which is 10) -> 1 seconds = 1000 ms and 1000(ms)/60(hertz)= 16.6
 - 4 States
-- Adjustable racer amount, with adjusting lane spacing.
+- Adjustable target amount, with adjusting lane spacing.
 - All racers have diffrent look.
 - Using acceleration to be smooth
-- Flashing lead icon.
 - Pause / Continue
 - Slow and fast motion with arrow keys
+	Note:
+Homework stated that we have to set the score points 1-5 depending on how far we shoot from the middle, instead i made headshot (5 pts), bodyshot (2 pts) and legshot hitboxes (1 pts).
 *********/
 
 #include <GL/glut.h>
@@ -42,19 +55,8 @@ int  winWidth, winHeight; // current Window width and height
 #define MENU 1
 #define PLAY 2
 #define END 3
-#define TARGET_AMOUNT 5 // <---- ADJUSTABLE
-#define STARTING_TIME 60
-
-/*
-if (flag == true) {
-timecount++;
-printf("Time: %d\n", timecount);
-pos.x = initpos.x + vel*timecount / 10.;
-pos.y = initpos.y + -5 * powf(timecount / 10., 2);
-}
-*/
-
-
+#define TARGET_MAX 50 // <---- ADJUSTABLE
+#define STARTING_TIME 80
 
 typedef struct {
 	int x, y;
@@ -81,16 +83,16 @@ typedef struct {
 	tri_t tri;
 };
 //Glubuls
-int posx[TARGET_AMOUNT], posy[TARGET_AMOUNT], winner, counter[TARGET_AMOUNT] = { 0 }, multiplier = 10, gamestate = LOAD,
-timecount = 0, initial, i, ms, sec, bulletcount = -1, bulletspeed = 10, max = -5000, score = 0, health[TARGET_AMOUNT], healthpoints = 4, gametime = 40;
-
-player_t player = { {-WINDOW_WIDTH / 2 + 65, 0 }, 40, 10, 0, };
+int posx[TARGET_MAX], posy[TARGET_MAX], counter[TARGET_MAX] = { 0 }, multiplier = 10, gamestate = LOAD,
+timecount = 0, initial, i, ms, sec, bulletcount = -1, bulletspeed = 10, score = 0, health[TARGET_MAX], healthpoints = 4,
+gametime = 20, accurate = 0, lasthit = 0, closest = 0, targetamount = 5;
+player_t player = { { -WINDOW_WIDTH / 2 + 65, 0 }, 40, 10, 0, };
 point_t onmove;
 tri_t tri;
 projectile_t *bullets;
 
-double accel[TARGET_AMOUNT], speed[TARGET_AMOUNT];
-bool touch[TARGET_AMOUNT],//if touched to the limit
+double accel[TARGET_MAX], speed[TARGET_MAX];
+bool touch[TARGET_MAX],//if touched to the limit
 flag = false,
 timer = true,
 *shoot;
@@ -280,7 +282,7 @@ void stickmanReverse(int mposx, int mposy, float r, float g, float b, int hp) {
 		if (hp > i)
 			glColor3f(0, 1, 0);
 		else glColor3f(1, 0, 0);
-		vprint(mposx - 3+i*2 - healthpoints, mposy + 20, GLUT_BITMAP_HELVETICA_12, "l");
+		vprint(mposx - 3 + i * 2 - healthpoints, mposy + 20, GLUT_BITMAP_HELVETICA_12, "l");
 	}
 }
 void dispPlayer() {
@@ -302,13 +304,14 @@ void dispPlayer() {
 
 
 void hitBoxes() {
-	for (initial = 0; initial < TARGET_AMOUNT; initial++) {
+	for (initial = 0; initial < targetamount; initial++) {
 		if (*(posx + initial) - 9 < (*(bullets + i)).pos.x && *(posx + initial) + 9 > (*(bullets + i)).pos.x && *(posy + initial) - 9 < (*(bullets + i)).pos.y && *(posy + initial) + 9 > (*(bullets + i)).pos.y) {
 			printf("Headshot! %d\n", initial + 1);
 			*(shoot + i) = false;
 			score += 4;
 			*(health + initial) -= 5;
-
+			lasthit = 5;
+			accurate++;
 			if (*(health + initial) <= 0) {
 				*(speed + initial) = 0.1;
 				printf("No %d: Accel: %0.4f Speed: %0.4f\n", initial, *(accel + initial), *(speed + initial));
@@ -321,7 +324,8 @@ void hitBoxes() {
 			*(shoot + i) = false;
 			score += 2;
 			*(health + initial) -= 2;
-
+			lasthit = 2;
+			accurate++;
 			if (*(health + initial) <= 0) {
 				*(speed + initial) = 0.1;
 				printf("No %d: Accel: %0.4f Speed: %0.4f\n", initial, *(accel + initial), *(speed + initial));
@@ -334,7 +338,8 @@ void hitBoxes() {
 			*(shoot + i) = false;
 			score += 1;
 			*(health + initial) -= 1;
-
+			lasthit = 1;
+			accurate++;
 			if (*(health + initial) <= 0) {
 				*(speed + initial) = 0.1;
 				printf("No %d: Accel: %0.4f Speed: %0.4f\n", initial, *(accel + initial), *(speed + initial));
@@ -366,13 +371,13 @@ void displayLoad() {
 	glLineWidth(10);
 	glBegin(GL_LINES);
 	glVertex2f(-250, -25);
-	glVertex2f((timecount / 13) * 50 - 200, -25);
+	glVertex2f((timecount / 2) * 40 - 200, -25);
 	glEnd();
 
 	//circle((timecount / 16) * 50 - 200, -50, 15);
 
 	//printf("%c", 13);
-	if (timecount > 100)//150
+	if (timecount > 25)//150
 		gamestate = MENU;
 
 }
@@ -382,21 +387,29 @@ void displayMenu() {
 	vprint2(-180, 120, 0.6, "STICKMAN");
 	vprint2(-150, 40, 0.6, "SHOOTER");
 	glColor3f(0, 0, 0);
-	vprint(-123, -20, GLUT_BITMAP_HELVETICA_18, "Press \'Enter\' to start the game.");
-	vprint(-115, -40, GLUT_BITMAP_9_BY_15, "Press \'W\' and \'S\' to move.");
-	vprint(-135, -60, GLUT_BITMAP_9_BY_15, "Press Arrow Keys to change speed.");
-	vprint(-115, -80, GLUT_BITMAP_9_BY_15, "Press \'Spacebar\' to pause.");
-	vprint(-135, -100, GLUT_BITMAP_9_BY_15, "Press \'F1\' to switch to menu.");
-	vprint(-225, -120, GLUT_BITMAP_9_BY_15, "Press \'F2\' to decrease, \'F3\' to increase target health.");
+	vprint(-123, -10, GLUT_BITMAP_HELVETICA_18, "Press \'Enter\' to start the game.");
+	vprint(-75, -35, GLUT_BITMAP_9_BY_15, "Use Mouse to aim.");
+	vprint(-125, -60, GLUT_BITMAP_9_BY_15, "Press Left Mouse Click to shoot.");
+	vprint(-115, -85, GLUT_BITMAP_9_BY_15, "Press \'W\' and \'S\' to move.");
+	vprint(-135, -110, GLUT_BITMAP_9_BY_15, "Press Arrow Keys to change speed.");
+	vprint(-115, -135, GLUT_BITMAP_9_BY_15, "Press \'Spacebar\' to pause.");
+	vprint(-135, -160, GLUT_BITMAP_9_BY_15, "Press \'F1\' to switch to menu.");
+	vprint(-225, -185, GLUT_BITMAP_9_BY_15, "Press \'F2\' to decrease, \'F3\' to increase target health.");
+	vprint(WINDOW_WIDTH/4 + 25, 20, GLUT_BITMAP_HELVETICA_12, "Game Duration:");
+	vprint(WINDOW_WIDTH / 4 + 20, -5, GLUT_BITMAP_HELVETICA_18, "%0.2d seconds", gametime);
+	vprint(WINDOW_WIDTH / 4 - 85, -30, GLUT_BITMAP_HELVETICA_12, "Press \'F4\' to decrease, \'F5\' to increase game duration.");
+	vprint(-WINDOW_WIDTH / 3 - 20, 20, GLUT_BITMAP_HELVETICA_12, "Target Amount:");
+	vprint(-WINDOW_WIDTH / 3 - 20, -5, GLUT_BITMAP_HELVETICA_18, "%0.2d targets", targetamount);
+	vprint(-WINDOW_WIDTH / 3 - 120, -30, GLUT_BITMAP_HELVETICA_12, "Press \'F6\' to decrease, \'F7\' to increase target amount.");
 
 	glColor3f(0, 1, 0);
 	for (i = 0; i < healthpoints; i++) {
-		vprint2(-5 + i * 20 - healthpoints * 10, -250, 0.5, "l");
+		vprint2(5 + i * 20 - healthpoints * 10, -260, 0.5, "l");
 	}
 	glColor3f(0, 0, 0);
-	vprint(-65, -280, GLUT_BITMAP_HELVETICA_12, "Target Healthpoints: ");
-	vprint(-15, -305, GLUT_BITMAP_HELVETICA_18, "%-2d", healthpoints);
-	
+	vprint(-55, -290, GLUT_BITMAP_HELVETICA_12, "Target Healthpoints: ");
+	vprint(-5, -315, GLUT_BITMAP_HELVETICA_18, "%-2d", healthpoints);
+
 	glLineWidth(10);
 	glBegin(GL_LINES);
 	glVertex2f(-228, 160);
@@ -423,8 +436,8 @@ void displayPlay() {
 
 	//stickMan(*(posx+1), *(posy+1), 0, 1, 0);
 	static bool r = 0, g = 0, b = 0;
-	for (initial = TARGET_AMOUNT - 1; initial >= 0; initial--) {
-		switch ((initial + 2 )% 8) {
+	for (initial = targetamount - 1; initial >= 0; initial--) {
+		switch ((initial + 2) % 8) {
 		case 0:break;
 		case 4: g = 1;
 		case 1: r = 1; break;
@@ -457,36 +470,57 @@ void displayPlay() {
 	ms = timecount - STARTING_TIME;
 
 	if (timer == true)
-		vprint(310, 340, GLUT_BITMAP_HELVETICA_10, "Press \'Spacebar\' to pause.");
+		vprint(325, 335, GLUT_BITMAP_HELVETICA_12, "Press \'Spacebar\' to pause.");
 	if (multiplier != 10)
-		vprint(340, 305, GLUT_BITMAP_HELVETICA_10, "%0.1f Speed", multiplier / 10.);
+		vprint(360, 300, GLUT_BITMAP_HELVETICA_10, "%0.1f Speed", multiplier / 10.);
 
 	if (ms < 0) {
 		sec = ms / 60;
 		ms -= sec * 60;
-		vprint(350, 320, GLUT_BITMAP_HELVETICA_18, "%0.2d", sec*-1);
-		vprint(370, 320, GLUT_BITMAP_HELVETICA_12, ":%d", ms*-1);
+		vprint(375, 315, GLUT_BITMAP_HELVETICA_18, "%0.2d", sec*-1);
+		vprint(395, 315, GLUT_BITMAP_HELVETICA_12, ":%d", ms*-1);
 	}
 	else {
 		sec = ms / 60;
 		ms -= sec * 60;
 		if (gametime - 1 - sec <= 3)
 			glColor3f(1, 0, 0);
-		vprint(350, 320, GLUT_BITMAP_HELVETICA_18, "%0.2d", gametime-1-sec);
-		vprint(370, 320, GLUT_BITMAP_HELVETICA_12, ":%d", 60-ms);
+		vprint(375, 315, GLUT_BITMAP_HELVETICA_18, "%0.2d", gametime - 1 - sec);
+		vprint(395, 315, GLUT_BITMAP_HELVETICA_12, ":%d", 60 - ms);
 		glColor3f(0.3, 0.3, 0.3);
-		vprint(-360, 335, GLUT_BITMAP_HELVETICA_12, "Score:");
-		vprint(-350, 315, GLUT_BITMAP_HELVETICA_18, "%0.3d", score);
+		vprint(-600, 335, GLUT_BITMAP_HELVETICA_12, "Score:");
+		vprint(-590, 315, GLUT_BITMAP_HELVETICA_18, "%0.3d", score);
+
+		vprint(-490, 335, GLUT_BITMAP_HELVETICA_12, "Total Hits:");
+		vprint(-480, 315, GLUT_BITMAP_HELVETICA_18, "%0.3d", accurate);
+
+		vprint(-370, 335, GLUT_BITMAP_HELVETICA_12, "Shots fired:");
+		vprint(-340, 315, GLUT_BITMAP_HELVETICA_18, "%0.3d", bulletcount + 1);
+
+		vprint(-260, 335, GLUT_BITMAP_HELVETICA_12, "Last hit was: (%d pts)", lasthit);
+		if (lasthit == 5)
+			vprint(-250, 315, GLUT_BITMAP_HELVETICA_18, "Headshot!");
+		else if (lasthit == 2)
+			vprint(-250, 315, GLUT_BITMAP_HELVETICA_18, "Bodyshot");
+		else if (lasthit == 1)
+			vprint(-250, 315, GLUT_BITMAP_HELVETICA_18, "Legshot");
+
+		vprint(200, 335, GLUT_BITMAP_HELVETICA_12, "Closest target HP:");
+		vprint(230, 315, GLUT_BITMAP_HELVETICA_18, "%0.2d", *(health + closest));
 
 		if (gametime <= sec)
 			gamestate = END;
 	}
 
-	if (timecount > STARTING_TIME - 25 && timecount < STARTING_TIME + 25) {
-		glColor3f(0, 0, 0);
-		vprint2(-60, 150, 0.5, "START!");
+	if (timecount < STARTING_TIME + 45) {
+		vprint(-30, 100, GLUT_BITMAP_HELVETICA_18, "Aim: Mouse");
+		vprint(-50, 70, GLUT_BITMAP_HELVETICA_18, "Shoot: Left Click");
+		vprint(-30, 40, GLUT_BITMAP_HELVETICA_18, "Move: W / S");
+		if (timecount > STARTING_TIME - 25) {
+			glColor3f(0, 0, 0);
+			vprint2(-80, 150, 0.5, "START!");
+		}
 	}
-
 	if (timer == false) {
 		glColor3f(0.2, 0.2, 0.2);
 		vprint2(-10, 150, 1, "ll");
@@ -527,17 +561,17 @@ void display() {
 
 void startGame() {
 	//initializing speed, acceleration, position, states, health, score, time
-	for (initial = 0; initial < TARGET_AMOUNT; initial++) {
+	for (initial = 0; initial < targetamount; initial++) {
 		*(speed + initial) = 0.2;
 		*(accel + initial) = (rand() % 30 + 30) / 175.0;
 		printf("No %d: Accel: %0.4f Speed: %0.4f\n", initial, *(accel + i), *(speed + i));
 		*(posx + initial) = WINDOW_WIDTH / 2 + 50 + rand() % 400;
-		*(posy + initial) = -200 + initial * 600 / TARGET_AMOUNT;
+		*(posy + initial) = -200 + initial * 550 / targetamount;
 		*(touch + initial) = false;
 		*(health + initial) = healthpoints;
 	}
-	score = 0;
-	timecount = 0;
+	score = timecount = accurate = lasthit = closest = 0;
+	bulletcount = -1;
 }
 
 //
@@ -613,6 +647,18 @@ void onSpecialKeyDown(int key, int x, int y)
 	if (key == GLUT_KEY_F3 && gamestate == MENU) {
 		healthpoints++;
 	}
+	if (key == GLUT_KEY_F4 && gamestate == MENU && gametime > 10) {
+		gametime -= 5;
+	}
+	if (key == GLUT_KEY_F5 && gamestate == MENU) {
+		gametime += 5;
+	}
+	if (key == GLUT_KEY_F6 && gamestate == MENU && targetamount > 1) {
+		targetamount--;
+	}
+	if (key == GLUT_KEY_F7 && gamestate == MENU && targetamount < 50) {
+		targetamount++;
+	}
 	// to refresh the window it calls display() function
 	glutPostRedisplay();
 }
@@ -648,10 +694,12 @@ void onClick(int button, int stat, int x, int y)
 	if (stat == GLUT_DOWN)
 		printf("X = %d  Y = %d\n", x - winWidth / 2, y - winHeight / 2);
 	if (button == GLUT_LEFT_BUTTON && stat == GLUT_DOWN && gamestate == PLAY) {
+		//if (bulletcount == 10)
+		// bulletcount = 0;
 		bulletcount++;
 		bullets = (projectile_t *)malloc(sizeof(projectile_t) * (bulletcount + 1));
 		shoot = (bool *)malloc(sizeof(bool) * (bulletcount + 1));
-		*(bullets + bulletcount) = { { player.pos.x, player.pos.y }, {tri.x, tri.y} };
+		*(bullets + bulletcount) = { { player.pos.x, player.pos.y },{ tri.x, tri.y } };
 		printf("Shoot %d: %d -> ", bulletcount, *(shoot + bulletcount));
 		*(shoot + bulletcount) = true;
 		printf("%d\n", *(shoot + bulletcount));
@@ -744,28 +792,28 @@ void onTimer(int v) {
 		case MENU: break;
 		case PLAY:
 			if (timecount >= STARTING_TIME)
-				for (i = TARGET_AMOUNT - 1; i >= 0; i--) {
+				for (i = targetamount - 1; i >= 0; i--) {
 
 					if (*(touch + i) == false) {
-						//	if (winWidth % winWidth / 20.0 == 0.0 || 0.2 + +*(accel + i));
+						// if (winWidth % winWidth / 20.0 == 0.0 || 0.2 + +*(accel + i));
 						*(speed + i) += (*(accel + i) / 40.0);
 						*(posx + i) -= *(speed + i);
-						if (max <= *(posx + i) && flag == false) {
-							max = *(posx + i);
-							winner = i;
-						}
+
 					}
 					else {
-						if (*(speed + i) <= +0.2 + *(accel + i))
+							if (*(speed + i) <= +0.2 + *(accel + i))
 							*(speed + i) += *(accel + i) / 40.0;
 						*(posx + i) -= *(speed + i);
+					}
+					if (*(posx + i) - 5000 < *(posx + closest) - 5000) {
+						closest = i;
 					}
 					if (*(posx + i) <= -WINDOW_WIDTH / 2 - 50) {
 						*(touch + i) = true;
 						flag = true;
 						//if (max < *(speed + i)) {
-						//	max = *(speed + i);
-						//	winner = i;
+						// max = *(speed + i);
+						// closest = i;
 						//}
 						*(accel + i) = (rand() % 30 + 30) / 100.0;
 						printf("No %d: Accel: %0.4f aceel/20: %0.4f Speed: %0.4f\n", i, *(accel + i), *(accel + i) / 40.0, *(speed + i));
@@ -774,7 +822,6 @@ void onTimer(int v) {
 					if (*(posx + i) <= -WINDOW_WIDTH / 2 - 50) {
 						gamestate = END;
 						timecount = 0;
-						max = -5000;
 						flag = false;
 					}
 				}
