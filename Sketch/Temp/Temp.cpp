@@ -22,6 +22,7 @@ explain here which parts are not running.
 
 #define TIMER_PERIOD  16 // Period for the timer.
 #define TIMER_ON         1 // 0:disable timer, 1:enable timer
+#define MAX 25
 
 #define D2R 0.0174532
 #define TARGET_AMOUNT 3
@@ -43,16 +44,23 @@ typedef struct {
 typedef struct {
 	point_t pos;
 	float angle, r, g, b, radius;
-	bool hit;
+	bool flag;
 } target_t;
 
+typedef struct {
+	point_t pos;
+	trigo_t direction;
+	bool flag;
+}projectile_t;
+
 /* Global Variables for Template File */
-bool up = false, down = false, right = false, left = false;
+bool up = false, down = false, right = false, left = false, shoot = false;
 int winWidth, winHeight; // current Window width and height
-int targetangle = 0, i;
+int targetangle = 0, i, count = 0;
 player_t player;
 target_t targets[3];
 trigo_t tri;
+projectile_t bullet[MAX];
 
 //
 // to draw circle, center at (x,y)
@@ -140,10 +148,24 @@ void initialize() {
 	player.lenght = 10;
 	player.pos.x = 0;
 	player.pos.y = 0;
-	for (i = 0; i < TARGET_AMOUNT; i++)
+	for (i = 0; i < TARGET_AMOUNT; i++) {
 		(*(targets + i)).angle = rand() % 360 - 180;
-}
+		(*(targets + i)).radius = rand() % 30 + 10;
+	}
 
+	for (i = 0; i < MAX; i++) {
+		bullet[i].pos = { 0,0 };
+	}
+
+}
+void drawProjectile(int in)
+{
+	if (bullet[in].flag) {
+		glColor3f(1, 1, 1);
+		//printf("%d\n", count);
+		circle(bullet[in].pos.x, bullet[in].pos.y, 6);
+	}
+}
 void dispPlayer() {
 
 
@@ -175,16 +197,16 @@ void dispPlayer() {
 }
 
 /*
-bool hitToIcons(player_t *p, target_t *icons, int size) {
+bool hitToIcons( int size) {
 	double d;
 	for (int i = 0; i < size; i++) {
-		d = dist(p->pos, icons[i].pos);
+		d = dist(player.pos, icons[i].pos);
 		if (d <= (p->radius + icons[i].radius)) {
-			icons[i].hit = true;
-			p->hit = true;
+			(*(targets+i)).hit = true;
+			player.hit = true;
 		}
 	}
-	return p->hit;
+	return player.hit;
 }
 */
 //
@@ -208,14 +230,18 @@ void display() {
 	glColor3f(0.3, 0.3, 1);
 	srand(time(NULL));
 
+	glBegin(GL_LINES);
+	glVertex2f(-WINDOW_WIDTH / 2, 0);
+	glVertex2f(WINDOW_WIDTH / 2, 0);
+	glVertex2f(0, -WINDOW_HEIGHT / 2);
+	glVertex2f(0, WINDOW_HEIGHT / 2);
+	glEnd();
+
 	for (i = 0; i < TARGET_AMOUNT; i++) {
 		//(*(targets + i)).angle = rand() % 360 - 180;
 		//(*(targets + i)).angle = 0;
-	
-		glColor3f(0.3, 0.3, 1);
-		circle((500 + i * 50) * cos(((*(targets + i)).angle + targetangle) * D2R), (150 + i * 50) * sin(((*(targets + i)).angle + targetangle) *D2R), ((int)((50 + 0) * sin(((*(targets + i)).angle + targetangle) *D2R)) % 300 - 200)+125);
-		glColor3f(0.8,0.8,0.8);
-		vprint((500 + i * 50) * cos(((*(targets + i)).angle + targetangle) * D2R), 300, GLUT_BITMAP_8_BY_13, "%d", ((int)((50 + 0) * sin(((*(targets + i)).angle + targetangle) *D2R)) % 300 - 200) + 125);
+		circle_wire(0, 0, (300 + i * 100));
+		circle((300 + i * 100) * cos(((*(targets + i)).angle + targetangle) * D2R), (300 + i * 100) * sin(((*(targets + i)).angle + targetangle) *D2R), targets[i].radius);
 	}
 
 	glutSwapBuffers();
@@ -291,7 +317,16 @@ void onClick(int button, int stat, int x, int y)
 {
 	// Write your codes here.
 
-
+	if (button == GLUT_LEFT_BUTTON && stat == GLUT_DOWN) {
+		shoot = true;
+		bullet[i].flag = true;
+		printf("%d\n", count);
+		bullet[count].direction = { tri.x, tri.y };
+		count++;
+	}
+	if (button == GLUT_LEFT_BUTTON && stat == GLUT_UP) {
+		shoot = false;
+	}
 
 	// to refresh the window it calls display() function
 	glutPostRedisplay();
@@ -361,6 +396,12 @@ void onTimer(int v) {
 	// Write your codes here.
 
 	targetangle++;
+	for (i = 0; i < MAX; i++) {
+		drawProjectile(i);
+		bullet[count].pos.x += bullet[count].direction.x * 10;
+		bullet[count].pos.y += bullet[count].direction.y * 10;
+	}
+
 
 	// to refresh the window it calls display() function
 	glutPostRedisplay(); // display()
@@ -380,7 +421,7 @@ void main(int argc, char *argv[]) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
 	glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
-	glutCreateWindow("Template File");
+	glutCreateWindow("xd");
 
 	glutDisplayFunc(display);
 	glutReshapeFunc(onResize);

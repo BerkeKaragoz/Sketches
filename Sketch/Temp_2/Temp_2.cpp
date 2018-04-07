@@ -1,73 +1,99 @@
-﻿#include <stdio.h>
+﻿/***
+CTIS164 - Template Source Program
+----------
+STUDENT :
+SECTION :
+HOMEWORK:
+----------
+PROBLEMS:
+----------
+ADDITIONAL FEATURES:
+***/
+
+#include <GL/glut.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
 #include <stdarg.h>
-#include <GL/glut.h>
 
-#define WINDOW_WIDTH  600
-#define WINDOW_HEIGHT 600
+#define WINDOW_WIDTH  700
+#define WINDOW_HEIGHT 700
+#define MAX_FIRE 25
+#define FIRE_RATE 1
 
-#define  TIMER_PERIOD  16 // Period for the timer.
-#define  TIMER_ON      1  // 0:disable timer, 1:enable timer
+#define TIMER_PERIOD  16 // Period for the timer.
+#define TIMER_ON         1 // 0:disable timer, 1:enable timer
 
 #define D2R 0.0174532
-
-bool up = false, down = false, right = false, left = false;
-int  winWidth, winHeight; // current Window width and height
-
 typedef struct {
-	double x, y;
+	float x, y;
 } point_t;
 
 typedef struct {
 	point_t pos;
-	double angle;
-	double radius; // circular collision boundary
-	bool hit;      // collision state
-} player_t;
+	float   angle;
+	float   r;
+} gun_t;
 
 typedef struct {
 	point_t pos;
-	double angle;
-	unsigned char r, g, b;
-	double radius; // circular collision boundary
-	bool hit;      // collision state
-} entity_t;
+	float angle;
+	bool active;
+} ammo_t;
+gun_t g = { { 0,0 }, 45, 20 };
+ammo_t a[MAX_FIRE];
+int rateOfFire = 0;
+bool fire;
+/* Global Variables for Template File */
+bool up = false, down = false, right = false, left = false;
+int  winWidth, winHeight; // current Window width and height
 
-#define MAX 20 //maximum number of icons
-
-entity_t icons[MAX];
-int count = 0;
-
-player_t p = { { 0,0 } , 45,  20 };
-
-//
-// to draw circle, center at (x,y)
-//  radius r
-//
+						  //
+						  // to draw circle, center at (x,y)
+						  // radius r
+						  //
 void circle(int x, int y, int r)
 {
-	double angle;
+#define PI 3.1415
+	float angle;
 	glBegin(GL_POLYGON);
-	for (int i = 0; i < 360; i += 5)
+	for (int i = 0; i < 100; i++)
 	{
-		angle = i * D2R;
+		angle = 2 * PI*i / 100;
 		glVertex2f(x + r*cos(angle), y + r*sin(angle));
 	}
 	glEnd();
 }
+
 void circle_wire(int x, int y, int r)
 {
+#define PI 3.1415
 	float angle;
+
 	glBegin(GL_LINE_LOOP);
-	for (int i = 0; i < 360; i += 5)
+	for (int i = 0; i < 100; i++)
 	{
-		angle = i * D2R;
+		angle = 2 * PI*i / 100;
 		glVertex2f(x + r*cos(angle), y + r*sin(angle));
 	}
 	glEnd();
 }
+
+void print(int x, int y, char *string, void *font)
+{
+	int len, i;
+
+	glRasterPos2f(x, y);
+	len = (int)strlen(string);
+	for (i = 0; i<len; i++)
+	{
+		glutBitmapCharacter(font, string[i]);
+	}
+}
+
+// display text with variables.
+// vprint(-winWidth / 2 + 10, winHeight / 2 - 20, GLUT_BITMAP_8_BY_13, "ERROR: %d", numClicks);
 void vprint(int x, int y, void *font, char *string, ...)
 {
 	va_list ap;
@@ -85,96 +111,84 @@ void vprint(int x, int y, void *font, char *string, ...)
 	}
 }
 
-// Apply translate (move) and rotation transformations
+// vprint2(-50, 0, 0.35, "00:%02d", timeCounter);
+void vprint2(int x, int y, float size, char *string, ...) {
+	va_list ap;
+	va_start(ap, string);
+	char str[1024];
+	vsprintf_s(str, string, ap);
+	va_end(ap);
+	glPushMatrix();
+	glTranslatef(x, y, 0);
+	glScalef(size, size, 1);
+
+	int len, i;
+	len = (int)strlen(str);
+	for (i = 0; i<len; i++)
+	{
+		glutStrokeCharacter(GLUT_STROKE_ROMAN, str[i]);
+	}
+	glPopMatrix();
+}
+
+//
+// To display onto window using OpenGL commands
+//
 void vertex(point_t P, point_t Tr, double angle) {
 	double xp = (P.x * cos(angle) - P.y * sin(angle)) + Tr.x;
 	double yp = (P.x * sin(angle) + P.y * cos(angle)) + Tr.y;
 	glVertex2d(xp, yp);
 }
-
-
-void drawPlayer(player_t p) {
-	double angle = p.angle * D2R;
-	glColor3f(0.5, 0.5, 1.0);
-	glBegin(GL_QUADS);
-	vertex({ 8, 25 }, p.pos, angle);
-	vertex({ 8, -25 }, p.pos, angle);
-	vertex({ -8, -20 }, p.pos, angle);
-	vertex({ -8, 20 }, p.pos, angle);
-	glEnd();
-	glColor3f(0.1, 0.1, 1.0);
-	glLineWidth(2);
-	glBegin(GL_LINE_LOOP);
-	vertex({ 8, 25 }, p.pos, angle);
-	vertex({ 8, -25 }, p.pos, angle);
-	vertex({ -8, -20 }, p.pos, angle);
-	vertex({ -8, 20 }, p.pos, angle);
-	glEnd();
-
-	glColor3f(0.8, 0.1, 0.1);
-	circle(p.pos.x, p.pos.y, 15);
-
-	glColor3f(0.1, 0.1, 1.0);
-	circle_wire(p.pos.x, p.pos.y, 15);
-	glLineWidth(1);
-
-	// collision boundary
-	if (p.hit) {
-		glColor3f(0, 1, 0);
-		circle_wire(p.pos.x, p.pos.y, p.radius);
-	}
-
-	glColor3f(1, 1, 0);
-	vprint(p.pos.x - 7, p.pos.y - 5, GLUT_BITMAP_HELVETICA_10,
-		"%.0f", p.angle);
-}
-
-void drawIcon(entity_t e) {
-	glColor3ub(e.r, e.g, e.b);
-	glBegin(GL_TRIANGLES);
-	vertex({ 0, 20 }, e.pos, e.angle);
-	vertex({ -17.3, -10 }, e.pos, e.angle);
-	vertex({ 17.3, -10 }, e.pos, e.angle);
-	glEnd();
-	glColor3f(0, 0, 0);
-	glLineWidth(2);
-	glBegin(GL_LINE_LOOP);
-	vertex({ 0, 20 }, e.pos, e.angle);
-	vertex({ -17.3, -10 }, e.pos, e.angle);
-	vertex({ 17.3, -10 }, e.pos, e.angle);
-	glEnd();
-	glLineWidth(1);
-
-	// collision boundary
-	if (e.hit) {
-		glColor3f(0, 1, 0);
-		circle_wire(e.pos.x, e.pos.y, e.radius);
-	}
-}
-
-void drawAllIcons() {
-	for (int i = 0; i< count; i++) {
-		drawIcon(icons[i]);
-	}
-}
-// display text with variables.
-
-//
-// To display onto window using OpenGL commands
-//
-void display()
+void drawGun(gun_t g)
 {
+	double angle = g.angle * D2R;
+	glColor3f(1, 0, 0);
+	glBegin(GL_QUADS);
+	vertex({ 0, 30 }, g.pos, angle);
+	vertex({ 0, -30 }, g.pos, angle);
+	vertex({ -8, -30 }, g.pos, angle);
+	vertex({ -8, 30 }, g.pos, angle);
+	glEnd();
+	glColor3f(0, 1, 1);
+	glBegin(GL_QUADS);
+	vertex({ 0, 20 }, g.pos, angle);
+	vertex({ 0, -20 }, g.pos, angle);
+	vertex({ 10, -15 }, g.pos, angle);
+	vertex({ 10, 15 }, g.pos, angle);
+	glEnd();
+	glColor3f(1, 1, 0);
+	glBegin(GL_TRIANGLES);
+	vertex({ 10, -15 }, g.pos, angle);
+	vertex({ 10, 15 }, g.pos, angle);
+	vertex({ 30, 0 }, g.pos, angle);
+	glEnd();
+
+}
+void drawAmmo()
+{
+	for (int i = 0; i < MAX_FIRE; i++) {
+		if (a[i].active) {
+			glColor3f(1, 1, 1);
+			circle(a[i].pos.x, a[i].pos.y, 6);
+		}
+	}
+}
+int findAvailableFire() {
+	for (int i = 0; i < MAX_FIRE; i++) {
+		if (a[i].active == false) return i;
+	}
+	return -1;
+}
+void display() {
 	//
 	// clear window to black
 	//
-	glClearColor(0.3, 0.3, 0.3, 0);
+	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT);
-
-	drawPlayer(p);
-	drawAllIcons();
+	drawGun(g);
+	drawAmmo();
 
 	glutSwapBuffers();
-
 }
 
 //
@@ -185,9 +199,10 @@ void onKeyDown(unsigned char key, int x, int y)
 	// exit when ESC is pressed.
 	if (key == 27)
 		exit(0);
-
+	if (key == ' ')
+		fire = true;
 	// to refresh the window it calls display() function
-	//glutPostRedisplay() ;
+	glutPostRedisplay();
 }
 
 void onKeyUp(unsigned char key, int x, int y)
@@ -195,9 +210,10 @@ void onKeyUp(unsigned char key, int x, int y)
 	// exit when ESC is pressed.
 	if (key == 27)
 		exit(0);
-
+	if (key == ' ')
+		fire = false;
 	// to refresh the window it calls display() function
-	//glutPostRedisplay() ;
+	glutPostRedisplay();
 }
 
 //
@@ -215,9 +231,8 @@ void onSpecialKeyDown(int key, int x, int y)
 	}
 
 	// to refresh the window it calls display() function
-	//glutPostRedisplay() ;
+	glutPostRedisplay();
 }
-
 
 //
 // Special Key like GLUT_KEY_F1, F2, F3,...
@@ -234,9 +249,8 @@ void onSpecialKeyUp(int key, int x, int y)
 	}
 
 	// to refresh the window it calls display() function
-	//glutPostRedisplay() ;
+	glutPostRedisplay();
 }
-
 
 //
 // When a click occurs in the window,
@@ -248,17 +262,13 @@ void onSpecialKeyUp(int key, int x, int y)
 void onClick(int button, int stat, int x, int y)
 {
 	// Write your codes here.
-	if (button == GLUT_LEFT_BUTTON && stat == GLUT_DOWN && count < MAX) {
-		icons[count].pos = { x - winWidth / 2.0 , winHeight / 2.0 - y };
-		icons[count].r = rand() % 256;
-		icons[count].g = rand() % 256;
-		icons[count].b = rand() % 256;
-		icons[count].radius = 20;
-		count++;
-	}
+	int x1 = x - winWidth / 2;
+	int y1 = winHeight / 2 - y;
+	printf("%d %d\n", x1, y1);
+
 
 	// to refresh the window it calls display() function
-	//glutPostRedisplay() ; 
+	glutPostRedisplay();
 }
 
 //
@@ -268,7 +278,6 @@ void onClick(int button, int stat, int x, int y)
 //
 void onResize(int w, int h)
 {
-	// To setup coordinate system
 	winWidth = w;
 	winHeight = h;
 	glViewport(0, 0, w, h);
@@ -277,7 +286,7 @@ void onResize(int w, int h)
 	glOrtho(-w / 2, w / 2, -h / 2, h / 2, -1, 1);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-
+	display(); // refresh window.
 }
 
 void onMoveDown(int x, int y) {
@@ -286,110 +295,61 @@ void onMoveDown(int x, int y) {
 
 
 	// to refresh the window it calls display() function   
-	//glutPostRedisplay() ;
+	glutPostRedisplay();
 }
 
+// GLUT to OpenGL coordinate conversion:
+//   x2 = x1 - winWidth / 2
+//   y2 = winHeight / 2 - y1
 void onMove(int x, int y) {
 	// Write your codes here.
+	x = x - winWidth / 2;
+	y = winHeight / 2 - y;
+	double val = 180.0 / PI;
+	g.angle = atan2(y, x) * val;
+	if (g.angle < 0)
+		g.angle += 360;
+	printf("%0f\n", g.angle);
+
 
 
 
 	// to refresh the window it calls display() function
-	//glutPostRedisplay() ;
+	glutPostRedisplay();
 }
-
-// distance between two points.
-double dist(point_t p1, point_t p2) {
-	return sqrt((p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y));
-}
-
-// if the player hits anyone of the icons, it returns true.
-bool hitToIcons(player_t *p, entity_t icons[], int size) {
-	for (int i = 0; i < size; i++) {
-		double d = dist(p->pos, icons[i].pos);
-		if (d <= (p->radius + icons[i].radius)) {
-			icons[i].hit = true;
-			p->hit = true;
-		}
-	}
-	return p->hit;
-}
-
-void movePlayer(player_t *p, double speed) {
-	double dx = speed * cos(p->angle * D2R);
-	double dy = speed * sin(p->angle * D2R);
-	point_t oldPos = p->pos;
-	p->pos = { p->pos.x + dx, p->pos.y + dy };
-	// if the player hits any icons, do not move
-	if (hitToIcons(p, icons, count)) {
-		p->pos = oldPos;
-	}
-	// check rectangular boundary
-	if (p->pos.x > (300 - p->radius) || p->pos.x < (-300 + p->radius) ||
-		p->pos.y >(300 - p->radius) || p->pos.y < (-300 + p->radius)) {
-		p->pos = oldPos;
-	}
-}
-
-void turnPlayer(player_t *p, double turn) {
-	p->angle += turn;
-	if (p->angle < 0)
-		p->angle += 360;
-	if (p->angle >= 360)
-		p->angle -= 360;
-}
-
-// At the beginning of a frame, none of the objects are colliding.
-void resetCollision() {
-	p.hit = false;
-	for (int i = 0; i < count; i++) {
-		icons[i].hit = false;
-	}
-}
-
+int asd = 0;
 #if TIMER_ON == 1
 void onTimer(int v) {
-
+	asd++;
 	glutTimerFunc(TIMER_PERIOD, onTimer, 0);
 	// Write your codes here.
-
-	resetCollision();
-	// turn the player clockwise direction
-	if (right) {
-		turnPlayer(&p, -4);
+	if (fire && asd % FIRE_RATE < 10)
+	{
+		int free = findAvailableFire();
+		if (free != -1)
+		{
+			a[free].pos = g.pos;
+			a[free].angle = g.angle;
+			a[free].active = true;
+			rateOfFire = FIRE_RATE;
+		}
 	}
 
-	// turn the player counter-clockwise direction
-	if (left) {
-		turnPlayer(&p, 4);
-	}
+	// Move all fires that are active.
+	for (int i = 0; i< MAX_FIRE; i++)
+	{
+		if (a[i].active)
+		{
+			a[i].pos.x += 10 * cos(a[i].angle * D2R);
+			a[i].pos.y += 10 * sin(a[i].angle * D2R);
 
-	// move forward
-	if (up) {
-		movePlayer(&p, 5);
-	}
-
-	// move backward
-	if (down) {
-		movePlayer(&p, -5);
-	}
-
-	// Find the nearest Icon and rotate it.
-	if (count > 0) {
-		int nearest = 0;
-		double minD = dist(p.pos, icons[0].pos);
-		for (int i = 1; i < count; i++) {
-			double d = dist(p.pos, icons[i].pos);
-			if (d < minD) {
-				minD = d;
-				nearest = i;
+			if (a[i].pos.x > 350 || a[i].pos.x < -350 || a[i].pos.y > 350 || a[i].pos.y < -350)
+			{
+				a[i].active = false;
 			}
 		}
-
-		// update the nearest icon's angle
-		icons[nearest].angle += 2;
-
 	}
+
 
 	// to refresh the window it calls display() function
 	glutPostRedisplay(); // display()
@@ -397,16 +357,24 @@ void onTimer(int v) {
 }
 #endif
 
-void main(int argc, char *argv[])
-{
+void Init() {
 
+	// Smoothing shapes
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+}
+
+void main(int argc, char *argv[]) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
 	glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
-	glutCreateWindow("Rotation");
+	//glutInitWindowPosition(100, 100);
+	glutCreateWindow("Template File");
 
 	glutDisplayFunc(display);
 	glutReshapeFunc(onResize);
+
 	//
 	// keyboard registration
 	//
@@ -427,6 +395,8 @@ void main(int argc, char *argv[])
 	// timer event
 	glutTimerFunc(TIMER_PERIOD, onTimer, 0);
 #endif
+
+	Init();
 
 	glutMainLoop();
 }
