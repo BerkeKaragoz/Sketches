@@ -175,7 +175,8 @@ void drawAmmo()
 }
 int findAvailableFire() {
 	for (int i = 0; i < MAX_FIRE; i++) {
-		if (a[i].active == false) return i;
+		if (a[i].active == false)
+			return i;
 	}
 	return -1;
 }

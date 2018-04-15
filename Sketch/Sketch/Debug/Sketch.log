@@ -1,1 +1,4 @@
-﻿
+﻿  Paper.cpp
+c:\users\e. berke karagöz\desktop\google drive\github\sketches\sketch\sketch\paper.cpp(2824): warning C4094: untagged 'struct' declared no symbols
+  Sketch.vcxproj -> C:\Users\E. Berke KARAGÖZ\Desktop\Google Drive\GitHub\Sketches\Sketch\Debug\Sketch.exe
+  Sketch.vcxproj -> C:\Users\E. Berke KARAGÖZ\Desktop\Google Drive\GitHub\Sketches\Sketch\Debug\Sketch.pdb (Full PDB)
